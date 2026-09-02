@@ -38,7 +38,8 @@ public sealed class InvitationService(
                 i.Email,
                 i.Role,
                 i.ExpiresAt,
-                directory.TryGetValue(i.InvitedByUserId, out var u) ? u.DisplayName : "A teammate"))
+                directory.TryGetValue(i.InvitedByUserId, out var u) ? u.DisplayName : "A teammate",
+                urls.InvitationAccept(i.Token)))
             .ToList();
     }
 

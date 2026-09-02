@@ -19,6 +19,6 @@ public sealed record OrganizationDto(Guid Id, string Name, string Slug, OrgRole 
 
 public sealed record OrganizationMemberDto(string UserId, string DisplayName, string Email, string AvatarColor, OrgRole Role);
 
-public sealed record InvitationDto(Guid Id, string Email, OrgRole Role, DateTimeOffset ExpiresAt, string InvitedByDisplayName);
+public sealed record InvitationDto(Guid Id, string Email, OrgRole Role, DateTimeOffset ExpiresAt, string InvitedByDisplayName, string AcceptUrl);
 
 public sealed record AcceptInvitationResult(string OrganizationSlug, string OrganizationName);

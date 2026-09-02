@@ -22,11 +22,15 @@ public static class DependencyInjection
         // so concurrent Blazor component renders never share one EF context. A scoped AppDbContext is also
         // registered (from the same factory) for ASP.NET Core Identity and the startup migration.
         services.AddDbContextFactory<AppDbContext>((_, options) =>
-            options.UseNpgsql(connectionString, npgsql =>
-            {
-                npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
-                npgsql.EnableRetryOnFailure();
-            }), ServiceLifetime.Scoped);
+            options
+                .UseNpgsql(connectionString, npgsql =>
+                {
+                    npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                    npgsql.EnableRetryOnFailure();
+                })
+                .ConfigureWarnings(w => w.Ignore(
+                    Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.MultipleCollectionIncludeWarning)),
+            ServiceLifetime.Scoped);
 
         services.AddScoped<AppDbContext>(sp => sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
         services.AddScoped<IAppDbContextFactory, AppDbContextFactoryAdapter>();

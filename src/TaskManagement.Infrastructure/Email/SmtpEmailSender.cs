@@ -29,14 +29,23 @@ public sealed class SmtpEmailSender(IOptions<EmailOptions> options, ILogger<Smtp
         message.Subject = subject;
         message.Body = new BodyBuilder { HtmlBody = htmlBody }.ToMessageBody();
 
-        using var client = new SmtpClient();
-        await client.ConnectAsync(_options.Host, _options.Port, ResolveSocketOptions(), ct);
+        try
+        {
+            using var client = new SmtpClient();
+            await client.ConnectAsync(_options.Host, _options.Port, ResolveSocketOptions(), ct);
 
-        if (!string.IsNullOrEmpty(_options.User))
-            await client.AuthenticateAsync(_options.User, _options.Password, ct);
+            if (!string.IsNullOrEmpty(_options.User))
+                await client.AuthenticateAsync(_options.User, _options.Password, ct);
 
-        await client.SendAsync(message, ct);
-        await client.DisconnectAsync(true, ct);
+            await client.SendAsync(message, ct);
+            await client.DisconnectAsync(true, ct);
+        }
+        catch (Exception ex)
+        {
+            // Never let a mail-server problem break the operation that triggered the email
+            // (invites, assignments and comments still succeed; the recipient just misses the notice).
+            logger.LogError(ex, "Failed to send email to {To} ({Subject}) via {Host}:{Port}.", toEmail, subject, _options.Host, _options.Port);
+        }
     }
 
     private SecureSocketOptions ResolveSocketOptions()

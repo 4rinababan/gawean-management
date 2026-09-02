@@ -6,6 +6,7 @@
 @inject OrganizationService Organizations
 @inject InvitationService Invitations
 @inject ToastService Toasts
+@inject IJSRuntime JS
 
 <PageTitle>Members</PageTitle>
 
@@ -73,15 +74,17 @@ else
     @if (CanManage && _pending is { Count: > 0 })
     {
         <h2 class="mb-2 mt-8 text-sm font-semibold text-slate-500">Pending invitations</h2>
+        <p class="mb-2 text-xs text-slate-400">If email delivery isn't set up, copy the invite link and send it manually.</p>
         <Card Padded="false">
             <ul class="divide-y divide-slate-100 dark:divide-slate-800">
                 @foreach (var i in _pending)
                 {
-                    <li class="flex items-center justify-between px-4 py-2.5 text-sm" @key="i.Id">
+                    <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm" @key="i.Id">
                         <span>@i.Email <Badge>@i.Role</Badge></span>
-                        <span class="text-xs text-slate-400">
-                            invited by @i.InvitedByDisplayName · expires @i.ExpiresAt.LocalDateTime.ToString("d")
-                            <button class="ml-3 text-rose-500 hover:underline" @onclick="() => RevokeAsync(i.Id)">Revoke</button>
+                        <span class="flex items-center gap-3 text-xs text-slate-400">
+                            <span>expires @i.ExpiresAt.LocalDateTime.ToString("d")</span>
+                            <button class="text-brand-600 hover:underline" @onclick="() => CopyLink(i.AcceptUrl)">Copy link</button>
+                            <button class="text-rose-500 hover:underline" @onclick="() => RevokeAsync(i.Id)">Revoke</button>
                         </span>
                     </li>
                 }
@@ -161,13 +164,19 @@ else
         try
         {
             await Invitations.InviteAsync(_invite);
-            Toasts.Success($"Invitation sent to {_invite.Email}.");
+            Toasts.Success($"Invitation created for {_invite.Email}. Copy the link below if no email arrives.");
             _invite.Email = "";
             _showInvite = false;
             await ReloadAsync();
         }
         catch (Exception ex) { Toasts.Error(ex.Message); }
         finally { _busy = false; }
+    }
+
+    private async Task CopyLink(string url)
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", url);
+        Toasts.Success("Invite link copied.");
     }
 
     private async Task RevokeAsync(Guid id)
