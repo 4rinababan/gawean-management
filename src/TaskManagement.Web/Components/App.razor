@@ -34,6 +34,10 @@
     <script src="@Assets["lib/signalr/signalr.min.js"]"></script>
     <script src="@Assets["js/app.js"]"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script>
+        // Enhanced navigation replaces the <html> attributes with the server's, dropping the theme class.
+        Blazor.addEventListener('enhancedload', () => window.tm.restoreTheme());
+    </script>
     <script src="@Assets["Components/Account/Shared/PasskeySubmit.razor.js"]" type="module"></script>
 </body>
 

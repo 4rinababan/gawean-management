@@ -2,33 +2,32 @@
 @rendermode InteractiveServer
 @inject IJSRuntime JS
 
-@* The icon shows what a click will switch *to*, and the label/title says it in words. *@
-<button type="button"
-        class="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-        title="@Label" aria-label="@Label" @onclick="ToggleAsync">
-    @if (_ready)
-    {
-        @(_isDark ? "☀️" : "🌙")
-    }
-    else
-    {
-        <span class="inline-block h-4 w-4"></span>
-    }
+@* A switch, not a button: role/aria-checked state it for assistive tech, and the two icons sit in
+   the track so the current mode is readable without relying on the knob position alone. *@
+<button type="button" role="switch" aria-checked="@(_isDark ? "true" : "false")"
+        title="@Label" aria-label="@Label"
+        class="@($"relative inline-flex h-7 w-13 shrink-0 items-center rounded-full border transition-colors {TrackClass}")"
+        @onclick="ToggleAsync">
+    <span class="pointer-events-none absolute left-1.5 text-[11px] leading-none @(_isDark ? "opacity-40" : "opacity-100")" aria-hidden="true">☀️</span>
+    <span class="pointer-events-none absolute right-1.5 text-[11px] leading-none @(_isDark ? "opacity-100" : "opacity-40")" aria-hidden="true">🌙</span>
+    <span class="@($"pointer-events-none relative z-10 h-5 w-5 rounded-full bg-white shadow transition-transform {(_isDark ? "translate-x-[1.6rem]" : "translate-x-1")}")"></span>
 </button>
 
 @code {
     private bool _isDark;
-    private bool _ready;
 
     private string Label => _isDark ? "Switch to light theme" : "Switch to dark theme";
+
+    private string TrackClass => _isDark
+        ? "border-slate-600 bg-slate-700"
+        : "border-slate-300 bg-slate-200";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
 
-        // The theme is applied by an inline script before first paint, so read it from the DOM.
+        // The theme is applied by an inline script before first paint, so read it back from the DOM.
         _isDark = await JS.InvokeAsync<bool>("tm.isDark");
-        _ready = true;
         StateHasChanged();
     }
 

@@ -94,6 +94,16 @@
   .tm-shell {
     @apply mx-auto w-full max-w-[100rem] px-4 sm:px-6 lg:px-8;
   }
+
+  /* Board column: a distinct recessed surface so the lanes read as separate containers. */
+  .tm-kanban-column {
+    @apply rounded-xl border border-slate-200 bg-slate-100/80 p-3 shadow-inner
+           dark:border-slate-700 dark:bg-slate-900/70;
+  }
+}
+
+@utility w-13 {
+  width: 3.25rem;
 }
 
 /* ---------------------------------------------------------------------------
