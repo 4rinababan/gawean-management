@@ -10,6 +10,23 @@
 
 @if (!ReadOnly)
 {
+    @* Snippets: Quill's own code-block button gives an empty block, which is a poor start for a
+       query or an ERD. These insert a working skeleton the author edits in place. *@
+    <div class="mt-2 flex flex-wrap gap-2">
+        <button type="button" class="tm-snippet" @onclick="() => InsertSnippet(SqlSkeleton)">
+            <Icon Name="clipboard" Class="h-3.5 w-3.5" /> SQL query
+        </button>
+        <button type="button" class="tm-snippet" @onclick="() => InsertSnippet(CodeSkeleton)">
+            <Icon Name="clipboard" Class="h-3.5 w-3.5" /> Code block
+        </button>
+        <button type="button" class="tm-snippet" @onclick="() => InsertSnippet(ErdSkeleton)">
+            <Icon Name="squares" Class="h-3.5 w-3.5" /> ERD diagram
+        </button>
+    </div>
+}
+
+@if (!ReadOnly)
+{
     @* Hidden on purpose: Quill's toolbar image button triggers this through JS interop, so uploads
        reuse the authenticated attachment pipeline instead of a bespoke JS upload endpoint. *@
     <div class="hidden">
@@ -67,6 +84,45 @@
         _lastPushed = html;
         Value = html;
         await ValueChanged.InvokeAsync(html);
+    }
+
+    private const string SqlSkeleton = """
+        SELECT t.id, t.name
+        FROM   table_name t
+        WHERE  t.status = 'active'
+        ORDER  BY t.name;
+        """;
+
+    private const string CodeSkeleton = """
+        // paste your code here
+        """;
+
+    /// <summary>
+    /// A Mermaid entity-relationship diagram. Rendered on the view side by richcontent.js; the block
+    /// must start with "erDiagram" for that pass to recognise it.
+    /// </summary>
+    private const string ErdSkeleton = """
+        erDiagram
+            CUSTOMER ||--o{ ORDER : places
+            ORDER    ||--|{ ORDER_LINE : contains
+            PRODUCT  ||--o{ ORDER_LINE : "appears in"
+
+            CUSTOMER {
+                int    id PK
+                string name
+                string email
+            }
+            ORDER {
+                int  id PK
+                int  customer_id FK
+                date placed_on
+            }
+        """;
+
+    private async Task InsertSnippet(string snippet)
+    {
+        if (_module is null) return;
+        await _module.InvokeVoidAsync("insertCodeBlock", _host, snippet);
     }
 
     [JSInvokable]

@@ -44,6 +44,48 @@ public class RichTextSanitizerTests
         => San(html).Should().Contain(expectedFragment);
 
     [Fact]
+    public void A_sql_query_survives_intact()
+    {
+        var sql = "SELECT t.id, t.name\nFROM   orders t\nWHERE  t.total &gt; 100\nORDER  BY t.name;";
+
+        var result = San($"<pre><code class=\"language-sql\">{sql}</code></pre>");
+
+        result.Should().Contain("<pre>").And.Contain("SELECT").And.Contain("ORDER  BY");
+        result.Should().Contain("language-sql", "the class drives syntax highlighting on the view side");
+    }
+
+    [Fact]
+    public void A_mermaid_erd_survives_with_its_relationship_syntax()
+    {
+        // The ERD syntax leans on |, {, } and -- , which a careless sanitiser would mangle.
+        var erd = "erDiagram\n    CUSTOMER ||--o{ ORDER : places\n    ORDER {\n        int id PK\n    }";
+
+        var result = San($"<pre><code class=\"language-mermaid\">{erd}</code></pre>");
+
+        result.Should().Contain("erDiagram");
+        result.Should().Contain("||--o{");
+        result.Should().Contain("int id PK");
+    }
+
+    [Fact]
+    public void Newlines_inside_a_code_block_are_preserved()
+    {
+        var result = San("<pre><code>line one\nline two\nline three</code></pre>");
+
+        result.Should().Contain("line one\nline two\nline three",
+            "Mermaid and code blocks are whitespace-significant");
+    }
+
+    [Fact]
+    public void A_script_hidden_inside_a_code_block_is_still_removed()
+    {
+        var result = San("<pre><code>ok</code></pre><script>alert(1)</script>");
+
+        result.Should().Contain("ok");
+        result.Should().NotContain("<script");
+    }
+
+    [Fact]
     public void Colour_and_alignment_styles_are_kept()
     {
         var result = San("<p style=\"color: rgb(230, 0, 0); text-align: center;\">tinted</p>");

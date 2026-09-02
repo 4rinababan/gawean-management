@@ -1,0 +1,42 @@
+@namespace TaskManagement.Web.Components.Ui
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* Read-only render of a description. The HTML was sanitised on write (RichTextSanitizer), so it is
+   safe to emit; the JS pass only highlights code and swaps mermaid blocks for diagrams. *@
+@if (string.IsNullOrWhiteSpace(Html))
+{
+    <p class="text-sm text-slate-400">@EmptyText</p>
+}
+else
+{
+    <div @ref="_host" class="tm-prose" @key="Html">@((MarkupString)Html)</div>
+}
+
+@code {
+    [Parameter] public string? Html { get; set; }
+    [Parameter] public string EmptyText { get; set; } = "No description yet.";
+
+    private ElementReference _host;
+    private IJSObjectReference? _module;
+    private string? _rendered;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (string.IsNullOrWhiteSpace(Html) || Html == _rendered)
+            return;
+
+        _rendered = Html;
+        _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/richcontent.js");
+        await _module.InvokeVoidAsync("render", _host);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_module is not null) await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException) { }
+    }
+}

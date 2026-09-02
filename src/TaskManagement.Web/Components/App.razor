@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
     <link rel="stylesheet" href="@Assets["lib/quill/quill.snow.css"]" />
+    <link rel="stylesheet" href="@Assets["lib/highlight/hljs-themes.css"]" />
     <link rel="stylesheet" href="@Assets["css/app.generated.css"]" />
     <link rel="stylesheet" href="@Assets["TaskManagement.Web.styles.css"]" />
     <ImportMap />
@@ -33,6 +34,9 @@
     <ReconnectModal />
     <script src="@Assets["lib/sortablejs/Sortable.min.js"]"></script>
     <script src="@Assets["lib/quill/quill.js"]"></script>
+    @* highlight.js is small and used on every issue page; mermaid (2.5 MB) is loaded on demand
+       by richcontent.js, only when a description actually contains a diagram. *@
+    <script src="@Assets["lib/highlight/highlight.min.js"]"></script>
     <script src="@Assets["lib/signalr/signalr.min.js"]"></script>
     <script src="@Assets["lib/qrcode/qrcode.min.js"]"></script>
     <script src="@Assets["js/app.js"]"></script>

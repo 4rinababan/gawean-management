@@ -38,20 +38,40 @@ else
                 <Field Label="Summary">
                     <input class="tm-input" @bind="_edit.Title" @bind:event="oninput" disabled="@(!CanEdit)" />
                 </Field>
-                <Field Label="Description" Class="mt-4">
-                    <RichTextEditor Value="@_edit.Description" ValueChanged="OnDescriptionChanged"
-                                    ReadOnly="@(!CanEdit)" OnUploadImage="UploadInlineImageAsync" />
-                </Field>
-                @if (CanEdit)
+                @* Descriptions carry queries and diagrams, so the default is the rendered document —
+                   code highlighted, ERDs drawn — and editing is an explicit mode. *@
+                <div class="mt-4 flex items-center justify-between">
+                    <span class="tm-label mb-0">Description</span>
+                    @if (CanEdit && !_editingDescription)
+                    {
+                        <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => _editingDescription = true">Edit</Button>
+                    }
+                </div>
+
+                @if (_editingDescription)
                 {
+                    <RichTextEditor Value="@_edit.Description" ValueChanged="OnDescriptionChanged"
+                                    OnUploadImage="UploadInlineImageAsync" />
                     <div class="mt-4 flex items-center justify-end gap-3">
                         @if (IsDirty)
                         {
                             <span class="text-xs text-amber-600">Unsaved changes</span>
-                            <Button Variant="Button.ButtonVariant.Secondary" OnClick="ResetEdits">Discard</Button>
                         }
-                        <Button Type="button" Loading="_saving" Disabled="@(!IsDirty)" OnClick="SaveDetailsAsync">Save changes</Button>
+                        <Button Variant="Button.ButtonVariant.Secondary" OnClick="CancelDescriptionEdit">Cancel</Button>
+                        <Button Type="button" Loading="_saving" OnClick="SaveDetailsAsync">Save changes</Button>
                     </div>
+                }
+                else
+                {
+                    <div class="mt-1"><RichTextView Html="@_issue.Description" /></div>
+                    @if (CanEdit && _edit.Title != _issue.Title)
+                    {
+                        <div class="mt-4 flex items-center justify-end gap-3">
+                            <span class="text-xs text-amber-600">Unsaved changes</span>
+                            <Button Variant="Button.ButtonVariant.Secondary" OnClick="ResetEdits">Discard</Button>
+                            <Button Type="button" Loading="_saving" OnClick="SaveDetailsAsync">Save changes</Button>
+                        </div>
+                    }
                 }
             </Card>
 
@@ -223,6 +243,7 @@ else
     private bool _saving;
     private bool _descriptionDirty;
     private bool _uploading;
+    private bool _editingDescription;
     private bool _confirmDelete;
 
     private RenderFragment CommentsHeader => @<span class="text-sm font-semibold">Comments (@(_issue?.Comments.Count ?? 0))</span>;
@@ -308,6 +329,12 @@ else
         }
     }
 
+    private void CancelDescriptionEdit()
+    {
+        ResetEdits();
+        _editingDescription = false;
+    }
+
     private async Task SaveDetailsAsync()
     {
         if (!CanEdit) return;
@@ -316,6 +343,7 @@ else
         {
             await Issues.UpdateAsync(IssueId, _edit);
             await LoadAsync();
+            _editingDescription = false;
             Toasts.Success("Issue updated.");
         }
         catch (Exception ex) { Toasts.Error(ex.Message); }

@@ -58,6 +58,19 @@ export function setContent(element, html) {
     if (html) quill.clipboard.dangerouslyPasteHTML(html, 'silent');
 }
 
+/// Inserts a fenced block of text as a Quill code-block, one line per block line.
+export function insertCodeBlock(element, text) {
+    const quill = editors.get(element);
+    if (!quill) return;
+
+    const range = quill.getSelection(true);
+    const at = range ? range.index : quill.getLength();
+
+    quill.insertText(at, text.endsWith('\n') ? text : text + '\n', 'user');
+    quill.formatLine(at, text.length, 'code-block', true, 'user');
+    quill.setSelection(at + text.length, 0);
+}
+
 export function insertImage(element, url) {
     const quill = editors.get(element);
     if (!quill) return;
