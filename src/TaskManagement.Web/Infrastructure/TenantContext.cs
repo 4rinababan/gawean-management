@@ -23,7 +23,7 @@ public sealed class TenantContext : ITenantContext
 }
 
 /// <summary>Resolves an organization slug from the route to the current user's membership, or reports why it can't.</summary>
-public sealed class TenantResolver(AppDbContext db, ICurrentUser currentUser, ITenantContext tenant)
+public sealed class TenantResolver(IDbContextFactory<AppDbContext> dbf, ICurrentUser currentUser, ITenantContext tenant)
 {
     public enum Outcome { Resolved, NotFound, NotAMember, NotAuthenticated }
 
@@ -36,6 +36,7 @@ public sealed class TenantResolver(AppDbContext db, ICurrentUser currentUser, IT
         if (userId is null)
             return Outcome.NotAuthenticated;
 
+        await using var db = await dbf.CreateDbContextAsync(ct);
         var match = await db.Organizations
             .IgnoreQueryFilters()
             .Where(o => o.Slug == slug)

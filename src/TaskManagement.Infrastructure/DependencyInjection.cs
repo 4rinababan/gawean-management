@@ -18,14 +18,19 @@ public static class DependencyInjection
             ?? configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Connection string 'Default' is not configured.");
 
-        services.AddDbContext<AppDbContext>(options =>
+        // Scoped factory: each CreateDbContext() is a fresh unit of work bound to the current circuit's tenant,
+        // so concurrent Blazor component renders never share one EF context. A scoped AppDbContext is also
+        // registered (from the same factory) for ASP.NET Core Identity and the startup migration.
+        services.AddDbContextFactory<AppDbContext>((_, options) =>
             options.UseNpgsql(connectionString, npgsql =>
             {
                 npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
                 npgsql.EnableRetryOnFailure();
-            }));
+            }), ServiceLifetime.Scoped);
 
-        services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
+        services.AddScoped<AppDbContext>(sp => sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
+        services.AddScoped<IAppDbContextFactory, AppDbContextFactoryAdapter>();
+
         services.AddScoped<IUserDirectory, UserDirectory>();
 
         services.AddOptions<EmailOptions>().Bind(configuration.GetSection(EmailOptions.SectionName));

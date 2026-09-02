@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using TaskManagement.Application.Abstractions;
 using TaskManagement.Domain;
 using TaskManagement.Infrastructure.Persistence;
@@ -46,10 +47,13 @@ public sealed class SqliteHarness : IDisposable
 
     public FakeTenant Tenant { get; } = new();
 
+    public IAppDbContextFactory Factory { get; }
+
     public SqliteHarness()
     {
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
+        Factory = new SharedConnectionFactory(this);
 
         using var ctx = CreateContext();
         ctx.Database.EnsureCreated();
@@ -64,4 +68,9 @@ public sealed class SqliteHarness : IDisposable
     }
 
     public void Dispose() => _connection.Dispose();
+
+    private sealed class SharedConnectionFactory(SqliteHarness harness) : IAppDbContextFactory
+    {
+        public IAppDbContext CreateDbContext() => harness.CreateContext();
+    }
 }

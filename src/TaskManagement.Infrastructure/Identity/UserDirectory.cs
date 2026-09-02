@@ -5,9 +5,9 @@ using TaskManagement.Infrastructure.Persistence;
 namespace TaskManagement.Infrastructure.Identity;
 
 /// <summary>Read-only lookups over the Identity user table for display names, avatars and @mention resolution.</summary>
-public sealed class UserDirectory(AppDbContext db) : IUserDirectory
+public sealed class UserDirectory(IDbContextFactory<AppDbContext> dbf) : IUserDirectory
 {
-    private IQueryable<UserSummary> Query => db.Users.Select(u => new UserSummary(
+    private static IQueryable<UserSummary> Project(AppDbContext db) => db.Users.Select(u => new UserSummary(
         u.Id,
         (u.DisplayName == null || u.DisplayName == "") ? (u.UserName ?? u.Email ?? "User") : u.DisplayName,
         u.Email ?? string.Empty,
@@ -20,23 +20,29 @@ public sealed class UserDirectory(AppDbContext db) : IUserDirectory
         if (ids.Length == 0)
             return new Dictionary<string, UserSummary>();
 
-        return await Query.Where(u => ids.Contains(u.Id)).ToDictionaryAsync(u => u.Id, ct);
+        await using var db = await dbf.CreateDbContextAsync(ct);
+        return await Project(db).Where(u => ids.Contains(u.Id)).ToDictionaryAsync(u => u.Id, ct);
     }
 
     public async Task<UserSummary?> GetAsync(string userId, CancellationToken ct = default)
-        => await Query.FirstOrDefaultAsync(u => u.Id == userId, ct);
+    {
+        await using var db = await dbf.CreateDbContextAsync(ct);
+        return await Project(db).FirstOrDefaultAsync(u => u.Id == userId, ct);
+    }
 
     public async Task<UserSummary?> FindByEmailAsync(string email, CancellationToken ct = default)
     {
         var normalized = email.Trim().ToUpperInvariant();
+        await using var db = await dbf.CreateDbContextAsync(ct);
         var id = await db.Users.Where(u => u.NormalizedEmail == normalized).Select(u => u.Id).FirstOrDefaultAsync(ct);
-        return id is null ? null : await GetAsync(id, ct);
+        return id is null ? null : await Project(db).FirstOrDefaultAsync(u => u.Id == id, ct);
     }
 
     public async Task<UserSummary?> FindByUsernameAsync(string username, CancellationToken ct = default)
     {
         var normalized = username.Trim().ToUpperInvariant();
+        await using var db = await dbf.CreateDbContextAsync(ct);
         var id = await db.Users.Where(u => u.NormalizedUserName == normalized).Select(u => u.Id).FirstOrDefaultAsync(ct);
-        return id is null ? null : await GetAsync(id, ct);
+        return id is null ? null : await Project(db).FirstOrDefaultAsync(u => u.Id == id, ct);
     }
 }

@@ -6,11 +6,12 @@ using TaskManagement.Domain.Notifications;
 
 namespace TaskManagement.Application.Services;
 
-public sealed class NotificationService(IAppDbContext db, ICurrentUser currentUser)
+public sealed class NotificationService(IAppDbContextFactory dbf, ICurrentUser currentUser)
 {
     public async Task<IReadOnlyList<NotificationDto>> GetRecentAsync(int take = 20, CancellationToken ct = default)
     {
         var userId = currentUser.RequireUserId();
+        await using var db = dbf.CreateDbContext();
 
         return await db.IgnoringTenantFilter<Notification>()
             .Where(n => n.RecipientUserId == userId)
@@ -23,6 +24,7 @@ public sealed class NotificationService(IAppDbContext db, ICurrentUser currentUs
     public async Task<int> GetUnreadCountAsync(CancellationToken ct = default)
     {
         var userId = currentUser.RequireUserId();
+        await using var db = dbf.CreateDbContext();
         return await db.IgnoringTenantFilter<Notification>()
             .CountAsync(n => n.RecipientUserId == userId && !n.IsRead, ct);
     }
@@ -30,6 +32,7 @@ public sealed class NotificationService(IAppDbContext db, ICurrentUser currentUs
     public async Task MarkReadAsync(Guid notificationId, CancellationToken ct = default)
     {
         var userId = currentUser.RequireUserId();
+        await using var db = dbf.CreateDbContext();
         var notification = await db.IgnoringTenantFilter<Notification>()
             .FirstOrDefaultAsync(n => n.Id == notificationId && n.RecipientUserId == userId, ct)
             ?? throw NotFoundException.For<Notification>(notificationId);
@@ -41,6 +44,7 @@ public sealed class NotificationService(IAppDbContext db, ICurrentUser currentUs
     public async Task MarkAllReadAsync(CancellationToken ct = default)
     {
         var userId = currentUser.RequireUserId();
+        await using var db = dbf.CreateDbContext();
         await db.IgnoringTenantFilter<Notification>()
             .Where(n => n.RecipientUserId == userId && !n.IsRead)
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.IsRead, true), ct);

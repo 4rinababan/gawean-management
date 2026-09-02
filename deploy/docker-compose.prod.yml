@@ -16,6 +16,7 @@ services:
       FileStorage__RootPath: /app/uploads
       Smtp__Host: ${SMTP_HOST:-}
       Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__Security: ${SMTP_SECURITY:-Auto}
       Smtp__User: ${SMTP_USER:-}
       Smtp__Password: ${SMTP_PASSWORD:-}
       Smtp__FromAddress: ${SMTP_FROM:-no-reply@example.com}

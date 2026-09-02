@@ -11,15 +11,15 @@ using TaskManagement.Domain.Sprints;
 namespace TaskManagement.Application.Services;
 
 public sealed class SprintService(
-    IAppDbContext db,
+    IAppDbContextFactory dbf,
     PermissionGuard guard,
-    IssueService issues,
     INotificationRealtime realtime)
 {
     public async Task<IReadOnlyList<SprintDto>> GetForProjectAsync(Guid projectId, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ViewContent);
-        await issues.RequireProjectAsync(projectId, ct);
+        await using var db = dbf.CreateDbContext();
+        await IssueService.RequireProjectAsync(db, projectId, guard.OrganizationId, ct);
 
         var sprints = await db.Sprints
             .Where(s => s.ProjectId == projectId)
@@ -50,7 +50,8 @@ public sealed class SprintService(
     public async Task<Guid> CreateAsync(CreateSprintRequest request, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ManageSprints);
-        await issues.RequireProjectAsync(request.ProjectId, ct);
+        await using var db = dbf.CreateDbContext();
+        await IssueService.RequireProjectAsync(db, request.ProjectId, guard.OrganizationId, ct);
 
         var sprint = new Sprint(guard.OrganizationId, request.ProjectId, request.Name, request.Goal);
         db.Sprints.Add(sprint);
@@ -61,7 +62,8 @@ public sealed class SprintService(
     public async Task UpdateAsync(Guid sprintId, UpdateSprintRequest request, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ManageSprints);
-        var sprint = await RequireSprintAsync(sprintId, ct);
+        await using var db = dbf.CreateDbContext();
+        var sprint = await RequireSprintAsync(db, sprintId, ct);
         sprint.Update(request.Name, request.Goal);
         await db.SaveChangesAsync(ct);
     }
@@ -69,7 +71,8 @@ public sealed class SprintService(
     public async Task StartAsync(Guid sprintId, StartSprintRequest request, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ManageSprints);
-        var sprint = await RequireSprintAsync(sprintId, ct);
+        await using var db = dbf.CreateDbContext();
+        var sprint = await RequireSprintAsync(db, sprintId, ct);
 
         if (await db.Sprints.AnyAsync(s => s.ProjectId == sprint.ProjectId && s.State == SprintState.Active, ct))
             throw new ConflictException("This project already has an active sprint. Complete it before starting another.");
@@ -77,7 +80,6 @@ public sealed class SprintService(
         sprint.Start(request.StartDate, request.EndDate);
         await db.SaveChangesAsync(ct);
 
-        // Notify everyone with an issue in the sprint that it has started.
         var assignees = await db.Issues
             .Where(i => i.SprintId == sprintId && i.AssigneeUserId != null)
             .Select(i => i.AssigneeUserId!)
@@ -98,7 +100,8 @@ public sealed class SprintService(
     public async Task CompleteAsync(Guid sprintId, Guid? moveUnfinishedToSprintId, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ManageSprints);
-        var sprint = await RequireSprintAsync(sprintId, ct);
+        await using var db = dbf.CreateDbContext();
+        var sprint = await RequireSprintAsync(db, sprintId, ct);
         sprint.Complete();
 
         var unfinished = await db.Issues
@@ -114,7 +117,8 @@ public sealed class SprintService(
     public async Task<BurndownDto> GetBurndownAsync(Guid sprintId, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ViewContent);
-        var sprint = await RequireSprintAsync(sprintId, ct);
+        await using var db = dbf.CreateDbContext();
+        var sprint = await RequireSprintAsync(db, sprintId, ct);
 
         if (sprint.StartDate is not { } start || sprint.EndDate is not { } end)
             return new BurndownDto(sprint.Id, sprint.Name, []);
@@ -126,7 +130,6 @@ public sealed class SprintService(
 
         var total = sprintIssues.Sum(i => i.StoryPoints ?? 0);
 
-        // Approximate burn events from the "Status -> Done" activity records for these issues.
         var issueIds = sprintIssues.Select(i => i.Id).ToList();
         var doneEvents = await db.ActivityLogs
             .Where(a => issueIds.Contains(a.IssueId) && a.Field == nameof(Issue.Status) && a.NewValue == nameof(IssueStatus.Done))
@@ -145,7 +148,7 @@ public sealed class SprintService(
         return new BurndownDto(sprint.Id, sprint.Name, points);
     }
 
-    private async Task<Sprint> RequireSprintAsync(Guid sprintId, CancellationToken ct)
+    private async Task<Sprint> RequireSprintAsync(IAppDbContext db, Guid sprintId, CancellationToken ct)
         => await db.Sprints.FirstOrDefaultAsync(s => s.Id == sprintId && s.OrganizationId == guard.OrganizationId, ct)
            ?? throw NotFoundException.For<Sprint>(sprintId);
 }

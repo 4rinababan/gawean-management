@@ -10,7 +10,7 @@ using TaskManagement.Domain.Projects;
 namespace TaskManagement.Application.Services;
 
 public sealed class IssueService(
-    IAppDbContext db,
+    IAppDbContextFactory dbf,
     IUserDirectory users,
     PermissionGuard guard,
     IssueChangeProcessor changeProcessor)
@@ -18,19 +18,21 @@ public sealed class IssueService(
     public async Task<IReadOnlyList<IssueListItemDto>> GetBacklogAsync(Guid projectId, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ViewContent);
-        var project = await RequireProjectAsync(projectId, ct);
+        await using var db = dbf.CreateDbContext();
+        var project = await RequireProjectAsync(db, projectId, ct);
 
         var issues = await db.Issues
             .Where(i => i.ProjectId == projectId && i.SprintId == null && i.Status != IssueStatus.Done)
             .OrderBy(i => i.BoardRank)
             .ToListAsync(ct);
 
-        return await ToListItemsAsync(issues, project.Key, ct);
+        return await IssueMapper.ToListItemsAsync(issues, project.Key, users, ct);
     }
 
     public async Task<IssueDetailDto> GetAsync(Guid issueId, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ViewContent);
+        await using var db = dbf.CreateDbContext();
 
         var issue = await db.Issues
             .Include(i => i.Comments)
@@ -38,7 +40,7 @@ public sealed class IssueService(
             .FirstOrDefaultAsync(i => i.Id == issueId, ct)
             ?? throw NotFoundException.For<Issue>(issueId);
 
-        var project = await RequireProjectAsync(issue.ProjectId, ct);
+        var project = await RequireProjectAsync(db, issue.ProjectId, ct);
         var activity = await db.ActivityLogs
             .Where(a => a.IssueId == issueId)
             .OrderByDescending(a => a.CreatedAt)
@@ -76,6 +78,7 @@ public sealed class IssueService(
     {
         guard.Require(OrgPermission.CreateIssue);
         var actor = guard.UserId;
+        await using var db = dbf.CreateDbContext();
 
         var project = await db.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId && p.OrganizationId == guard.OrganizationId, ct)
             ?? throw NotFoundException.For<Project>(request.ProjectId);
@@ -89,7 +92,7 @@ public sealed class IssueService(
         if (request.AssigneeUserId is not null) issue.Assign(request.AssigneeUserId, actor);
 
         db.Issues.Add(issue);
-        await changeProcessor.ProcessAsync(issue, project.Key, actor, ct);
+        await changeProcessor.ProcessAsync(db, issue, project.Key, actor, ct);
 
         return issue.Id;
     }
@@ -98,10 +101,11 @@ public sealed class IssueService(
     {
         guard.Require(OrgPermission.EditIssue);
         var actor = guard.UserId;
+        await using var db = dbf.CreateDbContext();
 
         var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == issueId, ct)
             ?? throw NotFoundException.For<Issue>(issueId);
-        var project = await RequireProjectAsync(issue.ProjectId, ct);
+        var project = await RequireProjectAsync(db, issue.ProjectId, ct);
 
         issue.Rename(request.Title, actor);
         issue.Describe(request.Description, actor);
@@ -111,46 +115,49 @@ public sealed class IssueService(
         issue.AssignToSprint(request.SprintId, actor);
         issue.Assign(request.AssigneeUserId, actor);
 
-        await changeProcessor.ProcessAsync(issue, project.Key, actor, ct);
+        await changeProcessor.ProcessAsync(db, issue, project.Key, actor, ct);
     }
 
     public async Task ChangeStatusAsync(Guid issueId, IssueStatus status, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.EditIssue);
         var actor = guard.UserId;
+        await using var db = dbf.CreateDbContext();
 
         var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == issueId, ct)
             ?? throw NotFoundException.For<Issue>(issueId);
-        var project = await RequireProjectAsync(issue.ProjectId, ct);
+        var project = await RequireProjectAsync(db, issue.ProjectId, ct);
 
         issue.ChangeStatus(status, actor);
-        await changeProcessor.ProcessAsync(issue, project.Key, actor, ct);
+        await changeProcessor.ProcessAsync(db, issue, project.Key, actor, ct);
     }
 
     public async Task AssignAsync(Guid issueId, string? assigneeUserId, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.EditIssue);
         var actor = guard.UserId;
+        await using var db = dbf.CreateDbContext();
 
         var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == issueId, ct)
             ?? throw NotFoundException.For<Issue>(issueId);
-        var project = await RequireProjectAsync(issue.ProjectId, ct);
+        var project = await RequireProjectAsync(db, issue.ProjectId, ct);
 
         issue.Assign(assigneeUserId, actor);
-        await changeProcessor.ProcessAsync(issue, project.Key, actor, ct);
+        await changeProcessor.ProcessAsync(db, issue, project.Key, actor, ct);
     }
 
     public async Task<CommentDto> AddCommentAsync(AddCommentRequest request, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.CommentOnIssue);
         var actor = guard.UserId;
+        await using var db = dbf.CreateDbContext();
 
         var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == request.IssueId, ct)
             ?? throw NotFoundException.For<Issue>(request.IssueId);
-        var project = await RequireProjectAsync(issue.ProjectId, ct);
+        var project = await RequireProjectAsync(db, issue.ProjectId, ct);
 
         var comment = issue.AddComment(actor, request.Body);
-        await changeProcessor.ProcessAsync(issue, project.Key, actor, ct);
+        await changeProcessor.ProcessAsync(db, issue, project.Key, actor, ct);
 
         var author = await users.GetAsync(actor, ct);
         return new CommentDto(comment.Id, actor, author?.DisplayName ?? "You", author?.AvatarColor ?? "#64748b",
@@ -160,6 +167,7 @@ public sealed class IssueService(
     public async Task DeleteAsync(Guid issueId, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.DeleteIssue);
+        await using var db = dbf.CreateDbContext();
 
         var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == issueId, ct)
             ?? throw NotFoundException.For<Issue>(issueId);
@@ -168,21 +176,10 @@ public sealed class IssueService(
         await db.SaveChangesAsync(ct);
     }
 
-    internal async Task<Project> RequireProjectAsync(Guid projectId, CancellationToken ct)
-        => await db.Projects.FirstOrDefaultAsync(p => p.Id == projectId && p.OrganizationId == guard.OrganizationId, ct)
+    internal static async Task<Project> RequireProjectAsync(IAppDbContext db, Guid projectId, Guid organizationId, CancellationToken ct)
+        => await db.Projects.FirstOrDefaultAsync(p => p.Id == projectId && p.OrganizationId == organizationId, ct)
            ?? throw NotFoundException.For<Project>(projectId);
 
-    internal async Task<IReadOnlyList<IssueListItemDto>> ToListItemsAsync(IReadOnlyList<Issue> issues, string projectKey, CancellationToken ct)
-    {
-        var directory = await users.GetManyAsync(issues.Where(i => i.AssigneeUserId is not null).Select(i => i.AssigneeUserId!), ct);
-
-        return issues.Select(i =>
-        {
-            UserSummary? assignee = null;
-            if (i.AssigneeUserId is not null) directory.TryGetValue(i.AssigneeUserId, out assignee);
-            return new IssueListItemDto(
-                i.Id, $"{projectKey}-{i.Number}", i.Title, i.Type, i.Status, i.Priority, i.StoryPoints,
-                i.AssigneeUserId, assignee?.DisplayName, assignee?.AvatarColor, i.SprintId, i.BoardRank);
-        }).ToList();
-    }
+    private Task<Project> RequireProjectAsync(IAppDbContext db, Guid projectId, CancellationToken ct)
+        => RequireProjectAsync(db, projectId, guard.OrganizationId, ct);
 }

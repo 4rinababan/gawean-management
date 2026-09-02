@@ -11,14 +11,14 @@ namespace TaskManagement.Application.Services;
 /// after the issue has been mutated but before <c>SaveChangesAsync</c>.
 /// </summary>
 public sealed class IssueChangeProcessor(
-    IAppDbContext db,
     IUserDirectory users,
     IEmailSender email,
     INotificationRealtime realtime,
     ITenantContext tenant,
     IAppUrls urls)
 {
-    public async Task ProcessAsync(Issue issue, string projectKey, string actorUserId, CancellationToken ct = default)
+    /// <summary>Consumes the aggregate's queued changes on the caller's unit of work, then commits it.</summary>
+    public async Task ProcessAsync(IAppDbContext db, Issue issue, string projectKey, string actorUserId, CancellationToken ct = default)
     {
         var changes = issue.DequeueChanges();
         if (changes.Count == 0)

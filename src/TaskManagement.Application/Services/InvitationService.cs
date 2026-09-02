@@ -10,7 +10,7 @@ using TaskManagement.Domain.Organizations;
 namespace TaskManagement.Application.Services;
 
 public sealed class InvitationService(
-    IAppDbContext db,
+    IAppDbContextFactory dbf,
     ICurrentUser currentUser,
     IUserDirectory users,
     IEmailSender email,
@@ -23,6 +23,7 @@ public sealed class InvitationService(
     public async Task<IReadOnlyList<InvitationDto>> GetPendingAsync(CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ManageMembers);
+        await using var db = dbf.CreateDbContext();
 
         var invites = await db.Invitations
             .Where(i => i.OrganizationId == guard.OrganizationId && i.Status == InvitationStatus.Pending)
@@ -44,6 +45,7 @@ public sealed class InvitationService(
     public async Task InviteAsync(InviteMemberRequest request, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ManageMembers);
+        await using var db = dbf.CreateDbContext();
 
         var org = await db.Organizations
             .Include(o => o.Members)
@@ -72,6 +74,7 @@ public sealed class InvitationService(
     public async Task RevokeAsync(Guid invitationId, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ManageMembers);
+        await using var db = dbf.CreateDbContext();
 
         var invitation = await db.Invitations
             .FirstOrDefaultAsync(i => i.Id == invitationId && i.OrganizationId == guard.OrganizationId, ct)
@@ -85,6 +88,7 @@ public sealed class InvitationService(
     public async Task<AcceptInvitationResult> AcceptAsync(string token, CancellationToken ct = default)
     {
         var userId = currentUser.RequireUserId();
+        await using var db = dbf.CreateDbContext();
 
         var invitation = await db.IgnoringTenantFilter<Invitation>()
             .FirstOrDefaultAsync(i => i.Token == token, ct)

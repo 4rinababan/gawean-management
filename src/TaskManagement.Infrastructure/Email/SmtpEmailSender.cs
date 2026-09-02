@@ -30,13 +30,24 @@ public sealed class SmtpEmailSender(IOptions<EmailOptions> options, ILogger<Smtp
         message.Body = new BodyBuilder { HtmlBody = htmlBody }.ToMessageBody();
 
         using var client = new SmtpClient();
-        var socketOptions = _options.UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
-        await client.ConnectAsync(_options.Host, _options.Port, socketOptions, ct);
+        await client.ConnectAsync(_options.Host, _options.Port, ResolveSocketOptions(), ct);
 
         if (!string.IsNullOrEmpty(_options.User))
             await client.AuthenticateAsync(_options.User, _options.Password, ct);
 
         await client.SendAsync(message, ct);
         await client.DisconnectAsync(true, ct);
+    }
+
+    private SecureSocketOptions ResolveSocketOptions()
+    {
+        if (Enum.TryParse<SecureSocketOptions>(_options.Security, ignoreCase: true, out var explicitMode)
+            && explicitMode != SecureSocketOptions.Auto)
+        {
+            return explicitMode;
+        }
+
+        // Auto: port 465 is implicit TLS; everything else negotiates STARTTLS.
+        return _options.Port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls;
     }
 }

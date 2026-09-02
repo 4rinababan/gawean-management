@@ -8,11 +8,12 @@ using TaskManagement.Domain.Projects;
 
 namespace TaskManagement.Application.Services;
 
-public sealed class ProjectService(IAppDbContext db, IUserDirectory users, PermissionGuard guard)
+public sealed class ProjectService(IAppDbContextFactory dbf, IUserDirectory users, PermissionGuard guard)
 {
     public async Task<IReadOnlyList<ProjectDto>> GetAllAsync(CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ViewContent);
+        await using var db = dbf.CreateDbContext();
 
         var projects = await db.Projects
             .Where(p => p.OrganizationId == guard.OrganizationId)
@@ -42,6 +43,7 @@ public sealed class ProjectService(IAppDbContext db, IUserDirectory users, Permi
     {
         guard.Require(OrgPermission.ViewContent);
         key = key.ToUpperInvariant();
+        await using var db = dbf.CreateDbContext();
 
         var project = await db.Projects.FirstOrDefaultAsync(p => p.OrganizationId == guard.OrganizationId && p.Key == key, ct)
             ?? throw NotFoundException.For<Project>(key);
@@ -56,6 +58,7 @@ public sealed class ProjectService(IAppDbContext db, IUserDirectory users, Permi
     {
         guard.Require(OrgPermission.ManageProjects);
         var key = Project.ValidateKey(request.Key);
+        await using var db = dbf.CreateDbContext();
 
         if (await db.Projects.AnyAsync(p => p.OrganizationId == guard.OrganizationId && p.Key == key, ct))
             throw new ConflictException($"A project with key '{key}' already exists in this workspace.");
@@ -70,6 +73,7 @@ public sealed class ProjectService(IAppDbContext db, IUserDirectory users, Permi
     public async Task UpdateAsync(Guid projectId, UpdateProjectRequest request, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ManageProjects);
+        await using var db = dbf.CreateDbContext();
 
         var project = await db.Projects.FirstOrDefaultAsync(p => p.Id == projectId && p.OrganizationId == guard.OrganizationId, ct)
             ?? throw NotFoundException.For<Project>(projectId);
@@ -81,6 +85,7 @@ public sealed class ProjectService(IAppDbContext db, IUserDirectory users, Permi
     public async Task DeleteAsync(Guid projectId, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ManageProjects);
+        await using var db = dbf.CreateDbContext();
 
         var project = await db.Projects.FirstOrDefaultAsync(p => p.Id == projectId && p.OrganizationId == guard.OrganizationId, ct)
             ?? throw NotFoundException.For<Project>(projectId);

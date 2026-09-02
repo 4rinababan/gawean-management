@@ -8,10 +8,20 @@ using TaskManagement.Domain.Sprints;
 namespace TaskManagement.Application.Abstractions;
 
 /// <summary>
+/// Creates a fresh <see cref="IAppDbContext"/> for a single unit of work. Application services open one
+/// per operation (<c>await using</c>) rather than sharing a scoped context — this keeps concurrent Blazor
+/// component renders from using the same EF context on different async flows.
+/// </summary>
+public interface IAppDbContextFactory
+{
+    IAppDbContext CreateDbContext();
+}
+
+/// <summary>
 /// The persistence surface the application layer depends on. Implemented by the EF Core
 /// <c>AppDbContext</c> in the infrastructure layer, which also applies tenant query filters.
 /// </summary>
-public interface IAppDbContext
+public interface IAppDbContext : IAsyncDisposable
 {
     DbSet<Organization> Organizations { get; }
     DbSet<OrganizationMember> OrganizationMembers { get; }

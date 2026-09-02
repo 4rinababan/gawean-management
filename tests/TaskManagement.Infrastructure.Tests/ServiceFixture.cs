@@ -32,20 +32,21 @@ public sealed class ServiceFixture : IDisposable
 
     public AppDbContext Db() => _harness.CreateContext();
 
-    public T Build<T>(AppDbContext db) where T : class
+    public IAppDbContextFactory Factory => _harness.Factory;
+
+    public T Build<T>() where T : class
     {
         var guard = new PermissionGuard(Tenant, CurrentUser);
-        var changeProcessor = new IssueChangeProcessor(db, Users, Email, Realtime, Tenant, Urls);
-        var issues = new IssueService(db, Users, guard, changeProcessor);
+        var changeProcessor = new IssueChangeProcessor(Users, Email, Realtime, Tenant, Urls);
 
         object svc = typeof(T).Name switch
         {
-            nameof(IssueService) => issues,
-            nameof(BoardService) => new BoardService(db, guard, issues, changeProcessor),
-            nameof(SprintService) => new SprintService(db, guard, issues, Realtime),
-            nameof(ProjectService) => new ProjectService(db, Users, guard),
-            nameof(OrganizationService) => new OrganizationService(db, CurrentUser, Users, guard),
-            nameof(NotificationService) => new NotificationService(db, CurrentUser),
+            nameof(IssueService) => new IssueService(Factory, Users, guard, changeProcessor),
+            nameof(BoardService) => new BoardService(Factory, Users, guard, changeProcessor),
+            nameof(SprintService) => new SprintService(Factory, guard, Realtime),
+            nameof(ProjectService) => new ProjectService(Factory, Users, guard),
+            nameof(OrganizationService) => new OrganizationService(Factory, CurrentUser, Users, guard),
+            nameof(NotificationService) => new NotificationService(Factory, CurrentUser),
             _ => throw new NotSupportedException(typeof(T).Name),
         };
         return (T)svc;

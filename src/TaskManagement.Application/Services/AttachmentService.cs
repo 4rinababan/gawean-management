@@ -9,11 +9,12 @@ namespace TaskManagement.Application.Services;
 
 public sealed record AttachmentContent(string FileName, string ContentType, Stream Stream);
 
-public sealed class AttachmentService(IAppDbContext db, IFileStorage storage, PermissionGuard guard)
+public sealed class AttachmentService(IAppDbContextFactory dbf, IFileStorage storage, PermissionGuard guard)
 {
     public async Task<AttachmentDto> UploadAsync(Guid issueId, Stream content, string fileName, string contentType, long sizeBytes, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.EditIssue);
+        await using var db = dbf.CreateDbContext();
 
         var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == issueId, ct)
             ?? throw NotFoundException.For<Issue>(issueId);
@@ -28,6 +29,7 @@ public sealed class AttachmentService(IAppDbContext db, IFileStorage storage, Pe
     public async Task<AttachmentContent> DownloadAsync(Guid attachmentId, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ViewContent);
+        await using var db = dbf.CreateDbContext();
 
         var attachment = await db.Attachments.FirstOrDefaultAsync(a => a.Id == attachmentId, ct)
             ?? throw NotFoundException.For<Attachment>(attachmentId);
@@ -39,6 +41,7 @@ public sealed class AttachmentService(IAppDbContext db, IFileStorage storage, Pe
     public async Task DeleteAsync(Guid attachmentId, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.EditIssue);
+        await using var db = dbf.CreateDbContext();
 
         var attachment = await db.Attachments.FirstOrDefaultAsync(a => a.Id == attachmentId, ct)
             ?? throw NotFoundException.For<Attachment>(attachmentId);

@@ -4,13 +4,12 @@ using TaskManagement.Application.Common;
 using TaskManagement.Application.Contracts;
 using TaskManagement.Domain;
 using TaskManagement.Domain.Authorization;
-using TaskManagement.Domain.Common;
 using TaskManagement.Domain.Organizations;
 
 namespace TaskManagement.Application.Services;
 
 public sealed class OrganizationService(
-    IAppDbContext db,
+    IAppDbContextFactory dbf,
     ICurrentUser currentUser,
     IUserDirectory users,
     PermissionGuard guard)
@@ -19,6 +18,7 @@ public sealed class OrganizationService(
     public async Task<IReadOnlyList<OrganizationDto>> GetMyOrganizationsAsync(CancellationToken ct = default)
     {
         var userId = currentUser.RequireUserId();
+        await using var db = dbf.CreateDbContext();
 
         return await db.IgnoringTenantFilter<Organization>()
             .Where(o => o.Members.Any(m => m.UserId == userId))
@@ -36,6 +36,7 @@ public sealed class OrganizationService(
     {
         var userId = currentUser.RequireUserId();
         var slug = Organization.Slugify(request.Slug);
+        await using var db = dbf.CreateDbContext();
 
         if (await db.IgnoringTenantFilter<Organization>().AnyAsync(o => o.Slug == slug, ct))
             throw new ConflictException($"The workspace URL '{slug}' is already taken.");
@@ -50,6 +51,7 @@ public sealed class OrganizationService(
     public async Task<IReadOnlyList<OrganizationMemberDto>> GetMembersAsync(CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ViewContent);
+        await using var db = dbf.CreateDbContext();
 
         var members = await db.OrganizationMembers
             .Where(m => m.OrganizationId == guard.OrganizationId)
@@ -76,8 +78,9 @@ public sealed class OrganizationService(
     public async Task ChangeMemberRoleAsync(string targetUserId, OrgRole role, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ManageMembers);
+        await using var db = dbf.CreateDbContext();
 
-        var org = await LoadOrganizationWithMembersAsync(ct);
+        var org = await LoadOrganizationWithMembersAsync(db, ct);
         org.ChangeMemberRole(targetUserId, role);
         await db.SaveChangesAsync(ct);
     }
@@ -85,13 +88,14 @@ public sealed class OrganizationService(
     public async Task RemoveMemberAsync(string targetUserId, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ManageMembers);
+        await using var db = dbf.CreateDbContext();
 
-        var org = await LoadOrganizationWithMembersAsync(ct);
+        var org = await LoadOrganizationWithMembersAsync(db, ct);
         org.RemoveMember(targetUserId);
         await db.SaveChangesAsync(ct);
     }
 
-    private async Task<Organization> LoadOrganizationWithMembersAsync(CancellationToken ct)
+    private async Task<Organization> LoadOrganizationWithMembersAsync(IAppDbContext db, CancellationToken ct)
         => await db.Organizations
                .Include(o => o.Members)
                .FirstOrDefaultAsync(o => o.Id == guard.OrganizationId, ct)
