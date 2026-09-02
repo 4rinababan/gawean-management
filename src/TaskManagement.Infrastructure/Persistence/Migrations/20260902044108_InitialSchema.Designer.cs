@@ -12,7 +12,7 @@ using TaskManagement.Infrastructure.Persistence;
 namespace TaskManagement.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260902040437_InitialSchema")]
+    [Migration("20260902044108_InitialSchema")]
     partial class InitialSchema
     {
         /// <inheritdoc />
