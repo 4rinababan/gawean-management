@@ -27,6 +27,7 @@
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="$(AspNetVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="$(AspNetVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="$(AspNetVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="$(AspNetVersion)" />
 
     <!-- Infrastructure -->
     <PackageVersion Include="MailKit" Version="4.17.0" />

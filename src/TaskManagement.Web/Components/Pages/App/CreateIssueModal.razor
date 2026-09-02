@@ -2,8 +2,30 @@
 @inject IssueService Issues
 @inject OrganizationService Organizations
 @inject ToastService Toasts
+@inject IAiAssistant Ai
 
 <Modal Open="Open" OpenChanged="OpenChanged" Title="Create issue">
+    @if (Ai.IsEnabled)
+    {
+        @* Outside the EditForm on purpose: this is a drafting aid, not a field, and pressing Enter
+           here must fill the form rather than submit it. *@
+        <div class="mb-4 rounded-lg border border-brand-200 bg-brand-50/60 p-3 dark:border-brand-900 dark:bg-brand-950/40">
+            <label class="tm-label" for="ai-prompt">Describe it in one line</label>
+            <div class="flex gap-2">
+                <input id="ai-prompt" class="tm-input" @bind="_aiPrompt" @bind:event="oninput"
+                       @onkeydown="OnPromptKeyDown" disabled="@_drafting"
+                       placeholder="e.g. user tidak bisa upload attachment lebih dari 10MB di Safari" />
+                <Button Variant="Button.ButtonVariant.Secondary" OnClick="DraftAsync"
+                        Loading="_drafting" Disabled="@(string.IsNullOrWhiteSpace(_aiPrompt))">
+                    <Icon Name="sparkles" Class="h-4 w-4" /> Draft
+                </Button>
+            </div>
+            <p class="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                Fills the fields below with a suggestion. Review it before creating — the model can be wrong.
+            </p>
+        </div>
+    }
+
     <EditForm Model="_form" OnValidSubmit="SubmitAsync" OnInvalidSubmit="WarnInvalid">
         <FluentValidationValidator />
         <div class="space-y-4">
@@ -30,7 +52,8 @@
                 </Field>
             </div>
             <Field Label="Description">
-                <InputTextArea @bind-Value="_form.Description" class="tm-textarea" rows="4" />
+                @* Same editor as the issue page, so an AI draft arrives formatted rather than as raw tags. *@
+                <RichTextEditor Value="@_form.Description" ValueChanged="v => _form.Description = v" />
             </Field>
             <div class="grid grid-cols-2 gap-3">
                 <Field Label="Assignee">
@@ -61,6 +84,8 @@
     private CreateIssueRequest _form = new();
     private IReadOnlyList<OrganizationMemberDto> _members = [];
     private bool _busy;
+    private string? _aiPrompt;
+    private bool _drafting;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -74,6 +99,42 @@
     }
 
     private void WarnInvalid() => Toasts.Warning("Please fix the highlighted fields.");
+
+    private async Task OnPromptKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await DraftAsync();
+    }
+
+    /// <summary>
+    /// Fills the form from a model suggestion. Deliberately does not create anything: the author still
+    /// reviews every field and presses Create, so a bad draft costs a moment rather than a bad ticket.
+    /// </summary>
+    private async Task DraftAsync()
+    {
+        if (_drafting || string.IsNullOrWhiteSpace(_aiPrompt)) return;
+
+        _drafting = true;
+        try
+        {
+            var draft = await Ai.DraftIssueAsync(_aiPrompt);
+
+            _form.Title = draft.Title;
+            _form.Description = draft.Description;
+            _form.Type = draft.Type;
+            _form.Priority = draft.Priority;
+            _form.StoryPoints = draft.StoryPoints;
+
+            Toasts.Show("Draft ready — review it before creating.");
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error(ex.Message);
+        }
+        finally
+        {
+            _drafting = false;
+        }
+    }
 
     private async Task SubmitAsync()
     {

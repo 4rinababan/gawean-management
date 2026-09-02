@@ -1,3 +1,4 @@
+using TaskManagement.Application.Contracts;
 using TaskManagement.Domain;
 
 namespace TaskManagement.Application.Abstractions;
@@ -78,4 +79,20 @@ public interface IClock
 public interface IHtmlSanitizer
 {
     string? Sanitize(string? html);
+}
+
+/// <summary>
+/// Drafting help from a language model. Optional by design: when no model is configured the
+/// application runs exactly as before, so nothing here may become load-bearing for a core flow.
+/// </summary>
+public interface IAiAssistant
+{
+    /// <summary>False when no model is configured, so the UI can hide the entry points entirely.</summary>
+    bool IsEnabled { get; }
+
+    /// <summary>
+    /// Expands a one-line summary into a draft ticket. The returned description is already sanitised;
+    /// everything else is a suggestion the author is expected to review before saving.
+    /// </summary>
+    Task<IssueDraft> DraftIssueAsync(string prompt, CancellationToken ct = default);
 }

@@ -15,6 +15,17 @@ public sealed class CreateIssueRequest
     public DateOnly? DueDate { get; set; }
 }
 
+/// <summary>
+/// A suggested ticket from <see cref="Abstractions.IAiAssistant"/>. Every field is a proposal the
+/// author reviews and may overwrite — nothing here is persisted until they submit the form.
+/// </summary>
+public sealed record IssueDraft(
+    string Title,
+    string? Description,
+    IssueType Type,
+    IssuePriority Priority,
+    int? StoryPoints);
+
 public sealed class UpdateIssueRequest
 {
     public string Title { get; set; } = string.Empty;

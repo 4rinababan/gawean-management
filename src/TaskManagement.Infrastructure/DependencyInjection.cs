@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using TaskManagement.Application.Abstractions;
+using TaskManagement.Infrastructure.Ai;
 using TaskManagement.Infrastructure.Email;
 using TaskManagement.Infrastructure.Identity;
 using TaskManagement.Infrastructure.Persistence;
@@ -53,6 +54,34 @@ public static class DependencyInjection
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         services.AddSingleton<IClock, SystemClock>();
 
+        AddAiAssistant(services, configuration);
+
         return services;
+    }
+
+    /// <summary>
+    /// The assistant is optional: with no key configured we register a disabled stand-in rather than a
+    /// client that would fail on first use, so a deployment without a model is a supported state.
+    /// </summary>
+    private static void AddAiAssistant(IServiceCollection services, IConfiguration configuration)
+    {
+        var section = configuration.GetSection(AiOptions.SectionName);
+        services.AddOptions<AiOptions>().Bind(section);
+
+        var options = section.Get<AiOptions>() ?? new AiOptions();
+        if (!options.IsConfigured)
+        {
+            services.AddSingleton<IAiAssistant, DisabledAiAssistant>();
+            return;
+        }
+
+        services.AddHttpClient<IAiAssistant, ChatAiAssistant>(http =>
+        {
+            // A trailing slash matters: without it BaseAddress drops the /v1 segment when combined
+            // with the relative request path.
+            http.BaseAddress = new Uri(options.Endpoint.TrimEnd('/') + "/");
+            http.DefaultRequestHeaders.Authorization = new("Bearer", options.ApiKey);
+            http.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+        });
     }
 }

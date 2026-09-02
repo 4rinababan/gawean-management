@@ -21,6 +21,9 @@ services:
       Smtp__Password: ${SMTP_PASSWORD:-}
       Smtp__FromAddress: ${SMTP_FROM:-no-reply@example.com}
       Smtp__FromName: ${SMTP_FROM_NAME:-Ga-We-An - TMMIN}
+      Ai__Endpoint: ${AI_ENDPOINT:-}
+      Ai__ApiKey: ${AI_API_KEY:-}
+      Ai__Model: ${AI_MODEL:-}
       Authentication__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
       Authentication__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
       Authentication__GitHub__ClientId: ${GITHUB_CLIENT_ID:-}
