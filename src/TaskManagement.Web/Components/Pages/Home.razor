@@ -46,7 +46,7 @@ else
 }
 
 <Modal Open="_showCreate" OpenChanged="v => _showCreate = v" Title="Create a workspace">
-    <EditForm Model="_form" OnValidSubmit="CreateAsync">
+    <EditForm Model="_form" OnValidSubmit="CreateAsync" OnInvalidSubmit="WarnInvalid">
         <FluentValidationValidator />
         <div class="space-y-4">
             <Field Label="Workspace name" Required>
@@ -76,6 +76,8 @@ else
         : new string(_form.Slug.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray()).Trim('-');
 
     protected override async Task OnInitializedAsync() => _orgs = await Organizations.GetMyOrganizationsAsync();
+
+    private void WarnInvalid() => Toasts.Warning("Please fix the highlighted fields.");
 
     private async Task CreateAsync()
     {

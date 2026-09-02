@@ -157,6 +157,7 @@ public sealed class IssueService(
         var project = await RequireProjectAsync(db, issue.ProjectId, ct);
 
         var comment = issue.AddComment(actor, request.Body);
+        db.Comments.Add(comment); // client-generated ids: force Added rather than EF's key-is-set heuristic
         await changeProcessor.ProcessAsync(db, issue, project.Key, actor, ct);
 
         var author = await users.GetAsync(actor, ct);

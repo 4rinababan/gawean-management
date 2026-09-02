@@ -17,6 +17,7 @@ public sealed class ServiceFixture : IDisposable
     public IEmailSender Email { get; } = Substitute.For<IEmailSender>();
     public INotificationRealtime Realtime { get; } = Substitute.For<INotificationRealtime>();
     public IAppUrls Urls { get; } = Substitute.For<IAppUrls>();
+    public IFileStorage Storage { get; } = Substitute.For<IFileStorage>();
     public IClock Clock { get; } = new FakeClock();
 
     public ServiceFixture()
@@ -28,6 +29,7 @@ public sealed class ServiceFixture : IDisposable
                 .Distinct()
                 .ToDictionary(id => id, id => new UserSummary(id, $"User {id}", $"{id}@x.com", id, "#333")));
         Urls.Issue(Arg.Any<string>(), Arg.Any<Guid>()).Returns("https://test/issue");
+        Urls.InvitationAccept(Arg.Any<string>()).Returns(ci => $"https://test/invitations/accept?token={ci.Arg<string>()}");
     }
 
     public AppDbContext Db() => _harness.CreateContext();
@@ -47,6 +49,8 @@ public sealed class ServiceFixture : IDisposable
             nameof(ProjectService) => new ProjectService(Factory, Users, guard),
             nameof(OrganizationService) => new OrganizationService(Factory, CurrentUser, Users, guard),
             nameof(NotificationService) => new NotificationService(Factory, CurrentUser),
+            nameof(InvitationService) => new InvitationService(Factory, CurrentUser, Users, Email, guard, Clock, Urls),
+            nameof(AttachmentService) => new AttachmentService(Factory, Storage, guard),
             _ => throw new NotSupportedException(typeof(T).Name),
         };
         return (T)svc;

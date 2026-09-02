@@ -4,7 +4,7 @@
 @inject ToastService Toasts
 
 <Modal Open="Open" OpenChanged="OpenChanged" Title="Create issue">
-    <EditForm Model="_form" OnValidSubmit="SubmitAsync">
+    <EditForm Model="_form" OnValidSubmit="SubmitAsync" OnInvalidSubmit="WarnInvalid">
         <FluentValidationValidator />
         <div class="space-y-4">
             <Field Label="Summary" Required>
@@ -61,20 +61,25 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        // The validator requires ProjectId, and validation runs *before* OnValidSubmit — so these must be
+        // on the model as soon as it is bound, not assigned inside the submit handler.
+        _form.ProjectId = ProjectId;
+        _form.SprintId = SprintId;
+
         if (Open && _members.Count == 0)
             _members = await Organizations.GetMembersAsync();
     }
+
+    private void WarnInvalid() => Toasts.Warning("Please fix the highlighted fields.");
 
     private async Task SubmitAsync()
     {
         _busy = true;
         try
         {
-            _form.ProjectId = ProjectId;
-            _form.SprintId = SprintId;
             var id = await Issues.CreateAsync(_form);
             Toasts.Success("Issue created.");
-            _form = new CreateIssueRequest();
+            _form = new CreateIssueRequest { ProjectId = ProjectId, SprintId = SprintId };
             await OpenChanged.InvokeAsync(false);
             await OnCreated.InvokeAsync(id);
         }

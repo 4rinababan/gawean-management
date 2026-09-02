@@ -94,7 +94,7 @@ else
 }
 
 <Modal Open="_showInvite" OpenChanged="v => _showInvite = v" Title="Invite people">
-    <EditForm Model="_invite" OnValidSubmit="InviteAsync">
+    <EditForm Model="_invite" OnValidSubmit="InviteAsync" OnInvalidSubmit="WarnInvalid">
         <FluentValidationValidator />
         <div class="space-y-4">
             <Field Label="Email address" Required>
@@ -157,6 +157,8 @@ else
         }
         catch (Exception ex) { Toasts.Error(ex.Message); }
     }
+
+    private void WarnInvalid() => Toasts.Warning("Please fix the highlighted fields.");
 
     private async Task InviteAsync()
     {

@@ -84,7 +84,7 @@ else
     }
 
     <Modal Open="_showCreate" OpenChanged="v => _showCreate = v" Title="New sprint">
-        <EditForm Model="_createForm" OnValidSubmit="CreateAsync">
+        <EditForm Model="_createForm" OnValidSubmit="CreateAsync" OnInvalidSubmit="WarnInvalid">
             <FluentValidationValidator />
             <div class="space-y-4">
                 <Field Label="Name" Required>
@@ -103,7 +103,7 @@ else
     </Modal>
 
     <Modal Open="_startSprint is not null" OpenChanged="v => { if (!v) _startSprint = null; }" Title="Start sprint">
-        <EditForm Model="_startForm" OnValidSubmit="StartAsync">
+        <EditForm Model="_startForm" OnValidSubmit="StartAsync" OnInvalidSubmit="WarnInvalid">
             <FluentValidationValidator />
             <div class="grid grid-cols-2 gap-3">
                 <Field Label="Start date">
@@ -145,8 +145,12 @@ else
     protected override async Task OnTenantReadyAsync()
     {
         _project = await Projects.GetByKeyAsync(Key);
+        // Validation runs before OnValidSubmit, so ProjectId has to be on the model up front.
+        _createForm.ProjectId = _project.Id;
         await ReloadAsync();
     }
+
+    private void WarnInvalid() => Toasts.Warning("Please fix the highlighted fields.");
 
     private async Task ReloadAsync()
     {
@@ -160,9 +164,8 @@ else
         _busy = true;
         try
         {
-            _createForm.ProjectId = _project!.Id;
             await SprintSvc.CreateAsync(_createForm);
-            _createForm = new CreateSprintRequest();
+            _createForm = new CreateSprintRequest { ProjectId = _project!.Id };
             _showCreate = false;
             Toasts.Success("Sprint created.");
             await ReloadAsync();

@@ -59,6 +59,10 @@ public sealed class InvitationService(
             throw new ConflictException("That person is already a member of this workspace.");
 
         var invitation = org.InviteMember(address, request.Role, currentUser.RequireUserId(), Validity);
+        // Entity ids are client-generated, so EF's "key is already set" heuristic would mark a child
+        // discovered through a navigation collection as Modified (an UPDATE of a row that doesn't
+        // exist yet). Adding it to its DbSet forces the Added state.
+        db.Invitations.Add(invitation);
         await db.SaveChangesAsync(ct);
 
         var link = urls.InvitationAccept(invitation.Token);
@@ -108,7 +112,7 @@ public sealed class InvitationService(
         if (!invitation.IsRedeemable(clock.UtcNow))
             throw new ConflictException("This invitation has expired or has already been used.");
 
-        org.AddMember(userId, invitation.Role);
+        db.OrganizationMembers.Add(org.AddMember(userId, invitation.Role));
         invitation.Accept(userId, clock.UtcNow);
 
         db.Notifications.Add(new Notification(

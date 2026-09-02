@@ -12,7 +12,7 @@
 <PageHeader Title="New project" Subtitle="Projects group issues, sprints and a board. The key prefixes every issue reference." />
 
 <Card Class="max-w-xl">
-    <EditForm Model="_form" OnValidSubmit="SubmitAsync">
+    <EditForm Model="_form" OnValidSubmit="SubmitAsync" OnInvalidSubmit="WarnInvalid">
         <FluentValidationValidator />
         <div class="space-y-4">
             <Field Label="Name" Required>
@@ -51,6 +51,8 @@
         }
         _members = await Organizations.GetMembersAsync();
     }
+
+    private void WarnInvalid() => Toasts.Warning("Please fix the highlighted fields.");
 
     private async Task SubmitAsync()
     {

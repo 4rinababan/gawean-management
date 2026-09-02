@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaskManagement.Application.Abstractions;
 using TaskManagement.Domain.Common;
 using TaskManagement.Domain.Issues;
@@ -34,6 +36,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public IQueryable<TEntity> IgnoringTenantFilter<TEntity>() where TEntity : class
         => Set<TEntity>().IgnoreQueryFilters();
 
+    /// <summary>
+    /// SQLite has no native DateTimeOffset and refuses to ORDER BY one, which would make the whole
+    /// "newest first" family of queries untestable against the in-memory SQLite harness. Storing them
+    /// as a sortable binary value there keeps those paths covered; PostgreSQL uses timestamptz as normal.
+    /// </summary>
+    protected override void ConfigureConventions(ModelConfigurationBuilder builder)
+    {
+        base.ConfigureConventions(builder);
+
+        if (Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true)
+            builder.Properties<DateTimeOffset>().HaveConversion<DateTimeOffsetToBinaryConverter>();
+    }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -58,11 +73,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
         return base.SaveChanges();
     }
 
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         TouchTimestamps();
-        return base.SaveChangesAsync(cancellationToken);
+        try
+        {
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // The default message doesn't say which row vanished; name the entities so the log is actionable.
+            throw new DbUpdateConcurrencyException($"{ex.Message} Offending entries: {DescribeEntries(ex.Entries)}.", ex);
+        }
     }
+
+    private static string DescribeEntries(IReadOnlyList<EntityEntry> entries)
+        => entries.Count == 0
+            ? "(none reported)"
+            : string.Join(", ", entries.Select(e =>
+            {
+                var key = e.Metadata.FindPrimaryKey()?.Properties
+                    .Select(p => $"{p.Name}={e.Property(p.Name).CurrentValue}");
+                return $"{e.Metadata.ClrType.Name}[{e.State}] {(key is null ? "" : string.Join('/', key))}";
+            }));
 
     private void TouchTimestamps()
     {

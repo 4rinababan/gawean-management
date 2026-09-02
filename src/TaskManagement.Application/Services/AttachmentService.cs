@@ -21,6 +21,7 @@ public sealed class AttachmentService(IAppDbContextFactory dbf, IFileStorage sto
 
         var storageKey = await storage.SaveAsync(content, fileName, contentType, ct);
         var attachment = issue.AddAttachment(guard.UserId, fileName, contentType, sizeBytes, storageKey);
+        db.Attachments.Add(attachment); // client-generated ids: force Added rather than EF's key-is-set heuristic
         await db.SaveChangesAsync(ct);
 
         return new AttachmentDto(attachment.Id, attachment.FileName, attachment.ContentType, attachment.SizeBytes, attachment.UploadedByUserId, attachment.CreatedAt);
