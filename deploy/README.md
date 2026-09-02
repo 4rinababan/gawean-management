@@ -33,11 +33,14 @@ Settings → Secrets and variables → Actions:
 | `VPS_USER`      | SSH user (member of the `docker` group)                        |
 | `VPS_SSH_KEY`   | Private key whose public half is in the user's `authorized_keys` |
 
-`GITHUB_TOKEN` is provided automatically and is used to push/pull the GHCR image.
-Make the package public, or the VPS `docker login` in `cd.yml` handles private pulls.
+`GITHUB_TOKEN` is provided automatically and is used to push the GHCR image and to
+`docker login` on the VPS during that same deploy job. For manual `docker compose pull`
+on the VPS later, either make the GHCR package **public**
+(github.com/users/4rinababan/packages → gawean-management → Package settings → Change
+visibility) or add a VPS-side PAT with `read:packages`.
 
-Replace `OWNER` in `deploy/.env.example` / `docker-compose.prod.yml` comments with your
-GitHub org or user (the workflow injects the real `IMAGE` value at deploy time).
+This repo deploys `ghcr.io/4rinababan/gawean-management` to `ryugasolusindoproject.com`
+on the VPS at `103.89.7.185` (SSH user `cashflow`).
 
 ## 3. First deploy
 

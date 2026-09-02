@@ -3,7 +3,7 @@
 #   docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d
 services:
   web:
-    image: ${IMAGE:-ghcr.io/OWNER/taskmanagement:latest}
+    image: ${IMAGE:-ghcr.io/4rinababan/gawean-management:latest}
     restart: unless-stopped
     depends_on:
       db:
