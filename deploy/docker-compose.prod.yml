@@ -20,7 +20,7 @@ services:
       Smtp__User: ${SMTP_USER:-}
       Smtp__Password: ${SMTP_PASSWORD:-}
       Smtp__FromAddress: ${SMTP_FROM:-no-reply@example.com}
-      Smtp__FromName: ${SMTP_FROM_NAME:-Taskflow}
+      Smtp__FromName: ${SMTP_FROM_NAME:-Ga-We-An - TMMIN}
       Authentication__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
       Authentication__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
       Authentication__GitHub__ClientId: ${GITHUB_CLIENT_ID:-}

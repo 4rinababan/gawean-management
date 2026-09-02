@@ -1,26 +1,66 @@
 @namespace TaskManagement.Web.Components.Pages.App
+@using System.Globalization
 @inject SprintService SprintSvc
 
 @if (_data is { Points.Count: > 1 })
 {
-    <div class="mt-4">
-        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Burndown</p>
-        <svg viewBox="0 0 @Width @Height" class="w-full" preserveAspectRatio="none" role="img" aria-label="Sprint burndown chart">
-            <polyline points="@IdealPoints" fill="none" stroke="currentColor" stroke-dasharray="4 4" class="text-slate-300 dark:text-slate-600" stroke-width="1.5" />
-            <polyline points="@RemainingPoints" fill="none" stroke="currentColor" class="text-brand-500" stroke-width="2" />
-        </svg>
-        <div class="mt-1 flex justify-between text-[10px] text-slate-400">
-            <span>@_data.Points[0].Date.ToString("MMM d")</span>
-            <span>@_data.Points[^1].Date.ToString("MMM d")</span>
+    <figure class="mt-4">
+        <figcaption class="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Burndown</span>
+            @* Two series, so a legend is always present — identity is never colour alone. *@
+            <span class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                <svg width="14" height="8" aria-hidden="true"><line x1="0" y1="4" x2="14" y2="4" stroke="currentColor" class="text-brand-500" stroke-width="2" /></svg>
+                Remaining
+            </span>
+            <span class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                <svg width="14" height="8" aria-hidden="true"><line x1="0" y1="4" x2="14" y2="4" stroke="currentColor" class="text-slate-400" stroke-width="2" stroke-dasharray="3 3" /></svg>
+                Ideal
+            </span>
+        </figcaption>
+
+        <div class="relative">
+            <svg viewBox="0 0 @Fmt(Width) @Fmt(Height)" class="h-40 w-full overflow-visible"
+                 preserveAspectRatio="none" role="img"
+                 aria-label="@($"Burndown: {_data.Points[^1].Remaining:0.#} of {MaxY:0.#} points remaining")">
+                @* Baseline and midline, recessive. *@
+                <line x1="0" y1="@Fmt(Height)" x2="@Fmt(Width)" y2="@Fmt(Height)"
+                      stroke="currentColor" class="text-slate-200 dark:text-slate-700" stroke-width="1" vector-effect="non-scaling-stroke" />
+                <line x1="0" y1="@Fmt(Height / 2)" x2="@Fmt(Width)" y2="@Fmt(Height / 2)"
+                      stroke="currentColor" class="text-slate-100 dark:text-slate-800" stroke-width="1"
+                      stroke-dasharray="2 4" vector-effect="non-scaling-stroke" />
+
+                <polyline points="@Plot(p => p.Ideal)" fill="none" stroke="currentColor"
+                          class="text-slate-400" stroke-width="2" stroke-dasharray="4 4"
+                          vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+                <polyline points="@Plot(p => p.Remaining)" fill="none" stroke="currentColor"
+                          class="text-brand-500" stroke-width="2"
+                          vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+
+            @* Hover targets sit above the plot; a native <title> keeps this JS-free. *@
+            <div class="absolute inset-0 flex">
+                @foreach (var point in _data.Points)
+                {
+                    <div class="group relative flex-1" title="@($"{point.Date.ToString("d MMM")}: {point.Remaining:0.#} left (ideal {point.Ideal:0.#})")">
+                        <div class="absolute inset-y-0 left-1/2 w-px bg-brand-400 opacity-0 group-hover:opacity-100"></div>
+                    </div>
+                }
+            </div>
         </div>
-    </div>
+
+        <div class="mt-1 flex justify-between text-[10px] text-slate-400">
+            <span>@_data.Points[0].Date.ToString("d MMM")</span>
+            <span>@MaxY.ToString("0.#") pts at start</span>
+            <span>@_data.Points[^1].Date.ToString("d MMM")</span>
+        </div>
+    </figure>
 }
 
 @code {
     [Parameter, EditorRequired] public SprintDto Sprint { get; set; } = default!;
 
-    private const int Width = 300;
-    private const int Height = 80;
+    private const double Width = 300;
+    private const double Height = 80;
 
     private BurndownDto? _data;
 
@@ -29,18 +69,8 @@
 
     private double MaxY => Math.Max(1, _data!.Points.Max(p => Math.Max(p.Remaining, p.Ideal)));
 
-    private string RemainingPoints => Plot(p => p.Remaining);
-    private string IdealPoints => Plot(p => p.Ideal);
-
     private string Plot(Func<TaskManagement.Domain.Sprints.BurndownPoint, double> selector)
-    {
-        var pts = _data!.Points;
-        var stepX = (double)Width / (pts.Count - 1);
-        return string.Join(' ', pts.Select((p, i) =>
-        {
-            var x = i * stepX;
-            var y = Height - selector(p) / MaxY * Height;
-            return $"{x:0.#},{y:0.#}";
-        }));
-    }
+        => SvgGeometry.Polyline(_data!.Points.Select(selector).ToList(), Width, Height, MaxY);
+
+    private static string Fmt(double value) => SvgGeometry.Number(value);
 }
