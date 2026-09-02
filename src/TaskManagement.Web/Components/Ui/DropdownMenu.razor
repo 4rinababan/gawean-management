@@ -1,9 +1,13 @@
 @namespace TaskManagement.Web.Components.Ui
 
-<div class="relative inline-block text-left" @onfocusout="() => _open = false">
+@* Click-outside is handled by a transparent backdrop rather than @onfocusout: focusout fires on
+   mousedown, which would tear the menu down before the item's click event ever lands. *@
+<div class="relative inline-block text-left">
     <div @onclick="() => _open = !_open">@Trigger</div>
+
     @if (_open)
     {
+        <div class="fixed inset-0 z-20" @onclick="() => _open = false"></div>
         <div class="absolute right-0 z-30 mt-1 w-48 origin-top-right rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
              @onclick="() => _open = false">
             @ChildContent

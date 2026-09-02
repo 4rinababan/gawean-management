@@ -1,6 +1,7 @@
 @namespace TaskManagement.Web.Components.Layout
 @rendermode InteractiveServer
 @inject AuthenticationStateProvider AuthState
+@inject IUserDirectory Users
 @inject IJSRuntime JS
 
 <DropdownMenu>
@@ -33,7 +34,18 @@
     {
         var user = (await AuthState.GetAuthenticationStateAsync()).User;
         _name = user.Identity?.Name ?? "Account";
-        _email = user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
+        _email = user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? _name;
+
+        // Prefer the profile display name over the login (which is the email address).
+        var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (userId is not null && await Users.GetAsync(userId) is { } profile)
+        {
+            _name = profile.DisplayName;
+            _email = profile.Email;
+            _color = profile.AvatarColor;
+            return;
+        }
+
         _color = TaskManagement.Infrastructure.Identity.ApplicationUser.PickAvatarColor(_name);
     }
 

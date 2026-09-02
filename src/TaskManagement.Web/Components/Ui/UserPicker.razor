@@ -1,7 +1,8 @@
 @namespace TaskManagement.Web.Components.Ui
 
-<div class="relative" @onfocusout="OnFocusOut">
-    <button type="button" class="tm-select flex items-center gap-2 text-left" @onclick="Toggle">
+@* Same as DropdownMenu: close via a transparent backdrop, not @onfocusout, so option clicks land. *@
+<div class="relative">
+    <button type="button" class="tm-select flex items-center gap-2 text-left" @onclick="() => _open = !_open">
         @if (Selected is not null)
         {
             <Avatar Name="@Selected.DisplayName" Color="@Selected.AvatarColor" Size="xs" />
@@ -15,9 +16,10 @@
 
     @if (_open)
     {
-        <div class="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+        <div class="fixed inset-0 z-20" @onclick="() => _open = false"></div>
+        <div class="absolute z-30 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
             <input class="tm-input mx-2 my-1 !w-[calc(100%-1rem)]" placeholder="Search people…"
-                   @bind="_filter" @bind:event="oninput" @onclick:stopPropagation="true" />
+                   @bind="_filter" @bind:event="oninput" />
             @if (AllowUnassigned)
             {
                 <button type="button" class="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -29,10 +31,14 @@
             @foreach (var m in Filtered)
             {
                 <button type="button" class="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-                        @onclick="() => Pick(m.UserId)">
+                        @onclick="() => Pick(m.UserId)" @key="m.UserId">
                     <Avatar Name="@m.DisplayName" Color="@m.AvatarColor" Size="xs" />
                     <span class="truncate">@m.DisplayName</span>
                 </button>
+            }
+            @if (!Filtered.Any())
+            {
+                <p class="px-3 py-2 text-sm text-slate-400">No matches.</p>
             }
         </div>
     }
@@ -54,10 +60,6 @@
         ? Members
         : Members.Where(m => m.DisplayName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
                              || m.Email.Contains(_filter, StringComparison.OrdinalIgnoreCase));
-
-    private void Toggle() => _open = !_open;
-
-    private void OnFocusOut() => _open = false;
 
     private async Task Pick(string? userId)
     {
