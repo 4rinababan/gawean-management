@@ -1,0 +1,90 @@
+@namespace TaskManagement.Web.Components.Pages.App
+@inject IssueService Issues
+@inject OrganizationService Organizations
+@inject ToastService Toasts
+
+<Modal Open="Open" OpenChanged="OpenChanged" Title="Create issue">
+    <EditForm Model="_form" OnValidSubmit="SubmitAsync">
+        <FluentValidationValidator />
+        <div class="space-y-4">
+            <Field Label="Summary" Required>
+                <InputText @bind-Value="_form.Title" class="tm-input" placeholder="Short, descriptive title" />
+                <ValidationMessage For="() => _form.Title" class="mt-1 block text-xs text-rose-500" />
+            </Field>
+            <div class="grid grid-cols-2 gap-3">
+                <Field Label="Type">
+                    <InputSelect @bind-Value="_form.Type" class="tm-select">
+                        @foreach (var t in Enum.GetValues<IssueType>())
+                        {
+                            <option value="@t">@t</option>
+                        }
+                    </InputSelect>
+                </Field>
+                <Field Label="Priority">
+                    <InputSelect @bind-Value="_form.Priority" class="tm-select">
+                        @foreach (var p in Enum.GetValues<IssuePriority>())
+                        {
+                            <option value="@p">@p</option>
+                        }
+                    </InputSelect>
+                </Field>
+            </div>
+            <Field Label="Description">
+                <InputTextArea @bind-Value="_form.Description" class="tm-textarea" rows="4" />
+            </Field>
+            <div class="grid grid-cols-2 gap-3">
+                <Field Label="Assignee">
+                    <UserPicker Members="_members" @bind-Value="_form.AssigneeUserId" />
+                </Field>
+                <Field Label="Story points">
+                    <InputNumber @bind-Value="_form.StoryPoints" class="tm-input" />
+                </Field>
+            </div>
+        </div>
+        <div class="mt-6 flex justify-end gap-2">
+            <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => OpenChanged.InvokeAsync(false)">Cancel</Button>
+            <Button Type="submit" Loading="_busy">Create</Button>
+        </div>
+    </EditForm>
+</Modal>
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+    [Parameter, EditorRequired] public Guid ProjectId { get; set; }
+    [Parameter] public Guid? SprintId { get; set; }
+    [Parameter] public EventCallback<Guid> OnCreated { get; set; }
+
+    private CreateIssueRequest _form = new();
+    private IReadOnlyList<OrganizationMemberDto> _members = [];
+    private bool _busy;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Open && _members.Count == 0)
+            _members = await Organizations.GetMembersAsync();
+    }
+
+    private async Task SubmitAsync()
+    {
+        _busy = true;
+        try
+        {
+            _form.ProjectId = ProjectId;
+            _form.SprintId = SprintId;
+            var id = await Issues.CreateAsync(_form);
+            Toasts.Success("Issue created.");
+            _form = new CreateIssueRequest();
+            await OpenChanged.InvokeAsync(false);
+            await OnCreated.InvokeAsync(id);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error(ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

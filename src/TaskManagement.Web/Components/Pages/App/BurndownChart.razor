@@ -1,0 +1,46 @@
+@namespace TaskManagement.Web.Components.Pages.App
+@inject SprintService SprintSvc
+
+@if (_data is { Points.Count: > 1 })
+{
+    <div class="mt-4">
+        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Burndown</p>
+        <svg viewBox="0 0 @Width @Height" class="w-full" preserveAspectRatio="none" role="img" aria-label="Sprint burndown chart">
+            <polyline points="@IdealPoints" fill="none" stroke="currentColor" stroke-dasharray="4 4" class="text-slate-300 dark:text-slate-600" stroke-width="1.5" />
+            <polyline points="@RemainingPoints" fill="none" stroke="currentColor" class="text-brand-500" stroke-width="2" />
+        </svg>
+        <div class="mt-1 flex justify-between text-[10px] text-slate-400">
+            <span>@_data.Points[0].Date.ToString("MMM d")</span>
+            <span>@_data.Points[^1].Date.ToString("MMM d")</span>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public SprintDto Sprint { get; set; } = default!;
+
+    private const int Width = 300;
+    private const int Height = 80;
+
+    private BurndownDto? _data;
+
+    protected override async Task OnParametersSetAsync()
+        => _data = await SprintSvc.GetBurndownAsync(Sprint.Id);
+
+    private double MaxY => Math.Max(1, _data!.Points.Max(p => Math.Max(p.Remaining, p.Ideal)));
+
+    private string RemainingPoints => Plot(p => p.Remaining);
+    private string IdealPoints => Plot(p => p.Ideal);
+
+    private string Plot(Func<TaskManagement.Domain.Sprints.BurndownPoint, double> selector)
+    {
+        var pts = _data!.Points;
+        var stepX = (double)Width / (pts.Count - 1);
+        return string.Join(' ', pts.Select((p, i) =>
+        {
+            var x = i * stepX;
+            var y = Height - selector(p) / MaxY * Height;
+            return $"{x:0.#},{y:0.#}";
+        }));
+    }
+}

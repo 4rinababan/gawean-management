@@ -1,0 +1,10 @@
+@namespace TaskManagement.Web.Components.Ui
+
+<svg class="@($"animate-spin {Class}")" viewBox="0 0 24 24" fill="none" aria-hidden="true" role="status">
+    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+    <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.4 0 0 5.4 0 12h4z"></path>
+</svg>
+
+@code {
+    [Parameter] public string Class { get; set; } = "h-5 w-5";
+}

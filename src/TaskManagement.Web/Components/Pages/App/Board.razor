@@ -1,0 +1,136 @@
+@page "/{Slug}/projects/{Key}/board"
+@rendermode InteractiveServer
+@layout OrgLayout
+@attribute [Authorize]
+@implements IAsyncDisposable
+@inject ProjectService Projects
+@inject BoardService BoardSvc
+@inject NavigationManager Nav
+@inject ToastService Toasts
+@inject ITenantContext Tenant
+@inject IJSRuntime JS
+
+<PageTitle>@Key board</PageTitle>
+
+@if (_project is null)
+{
+    <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+}
+else
+{
+    <PageHeader Title="@_project.Name" Subtitle="@(_board?.ActiveSprintName is { } s ? $"Active sprint · {s}" : "No active sprint — showing all open issues")">
+        <Actions>
+            @if (CanCreate)
+            {
+                <Button Icon="➕" OnClick="() => _showCreate = true">Create issue</Button>
+            }
+        </Actions>
+    </PageHeader>
+
+    <ProjectTabs Slug="@Slug" Key="@Key" Current="board" />
+
+    @if (_board is null)
+    {
+        <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" @ref="_boardEl">
+            @foreach (var col in _board.Columns)
+            {
+                <div class="rounded-xl bg-slate-100/70 p-3 dark:bg-slate-900/60">
+                    <div class="mb-2 flex items-center justify-between px-1">
+                        <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">@col.Title</span>
+                        <span class="rounded-full bg-white px-2 text-xs text-slate-400 dark:bg-slate-800">@col.Issues.Count</span>
+                    </div>
+                    <div data-kanban-column data-status="@col.Status" class="flex min-h-[60px] flex-col gap-2">
+                        @foreach (var issue in col.Issues)
+                        {
+                            <KanbanCard Issue="issue" OnOpenIssue="OpenIssue" @key="issue.Id" />
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <CreateIssueModal Open="_showCreate" OpenChanged="v => _showCreate = v"
+                      ProjectId="_project.Id" SprintId="_board?.ActiveSprintId"
+                      OnCreated="_ => ReloadBoardAsync()" />
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+    [Parameter] public string Key { get; set; } = "";
+
+    private ProjectDto? _project;
+    private BoardDto? _board;
+    private bool _showCreate;
+    private ElementReference _boardEl;
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<Board>? _ref;
+    private bool _interopReady;
+
+    private bool CanCreate => Tenant.IsResolved && RolePermissions.Allows(Tenant.Role, OrgPermission.CreateIssue);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Tenant.IsResolved) return;
+        _project = await Projects.GetByKeyAsync(Key);
+        await ReloadBoardAsync();
+    }
+
+    private async Task ReloadBoardAsync()
+    {
+        if (_project is null) return;
+        _board = await BoardSvc.GetAsync(_project.Id);
+        _interopReady = false; // re-init after DOM refresh
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_board is null || _interopReady) return;
+
+        _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/board-interop.js");
+        _ref ??= DotNetObjectReference.Create(this);
+        await _module.InvokeVoidAsync("dispose", _boardEl);
+        await _module.InvokeVoidAsync("init", _boardEl, _ref);
+        _interopReady = true;
+    }
+
+    [JSInvokable]
+    public async Task OnCardMoved(string issueId, string status, string? beforeId, string? afterId)
+    {
+        try
+        {
+            await BoardSvc.MoveAsync(new MoveIssueRequest(
+                Guid.Parse(issueId),
+                Enum.Parse<IssueStatus>(status),
+                beforeId is null ? null : Guid.Parse(beforeId),
+                afterId is null ? null : Guid.Parse(afterId)));
+            await ReloadBoardAsync();
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error(ex.Message);
+            await ReloadBoardAsync();
+        }
+    }
+
+    private void OpenIssue(Guid id) => Nav.NavigateTo($"/{Slug}/issues/{id}");
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_module is not null)
+            {
+                await _module.InvokeVoidAsync("dispose", _boardEl);
+                await _module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException) { }
+        _ref?.Dispose();
+    }
+}

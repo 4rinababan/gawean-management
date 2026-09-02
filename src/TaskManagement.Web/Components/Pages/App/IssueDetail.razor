@@ -1,0 +1,288 @@
+@page "/{Slug}/issues/{IssueId:guid}"
+@rendermode InteractiveServer
+@layout OrgLayout
+@attribute [Authorize]
+@inject IssueService Issues
+@inject AttachmentService Attachments
+@inject OrganizationService Organizations
+@inject SprintService SprintSvc
+@inject ProjectService Projects
+@inject NavigationManager Nav
+@inject ToastService Toasts
+@inject ITenantContext Tenant
+
+<PageTitle>@(_issue?.Reference ?? "Issue")</PageTitle>
+
+@if (_issue is null)
+{
+    <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+}
+else
+{
+    <PageHeader Title="@_issue.Title">
+        <Breadcrumb>
+            <a href="@($"/{Slug}/projects/{_issue.ProjectKey}/board")" class="hover:underline">@_issue.ProjectKey</a>
+            <span class="mx-1">/</span>
+            <span class="font-mono">@_issue.Reference</span>
+        </Breadcrumb>
+        <Actions>
+            @if (CanDelete)
+            {
+                <Button Variant="Button.ButtonVariant.Danger" Icon="🗑" OnClick="() => _confirmDelete = true">Delete</Button>
+            }
+        </Actions>
+    </PageHeader>
+
+    <div class="grid gap-6 lg:grid-cols-[1fr_280px]">
+        <div class="space-y-6">
+            <Card>
+                <Field Label="Summary">
+                    <input class="tm-input" value="@_issue.Title" @onchange="e => SaveField(() => _edit.Title = e.Value?.ToString() ?? _issue!.Title)" />
+                </Field>
+                <Field Label="Description" Class="mt-4">
+                    <textarea class="tm-textarea" rows="6" @onchange="e => SaveField(() => _edit.Description = e.Value?.ToString())">@_issue.Description</textarea>
+                </Field>
+            </Card>
+
+            <Card Header="@CommentsHeader">
+                @foreach (var c in _issue.Comments)
+                {
+                    <div class="flex gap-3 py-3" @key="c.Id">
+                        <Avatar Name="@c.AuthorDisplayName" Color="@c.AuthorAvatarColor" Size="sm" />
+                        <div class="min-w-0 flex-1">
+                            <p class="text-xs text-slate-400">@c.AuthorDisplayName · @c.CreatedAt.LocalDateTime.ToString("g")</p>
+                            <p class="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">@c.Body</p>
+                        </div>
+                    </div>
+                }
+                @if (CanComment)
+                {
+                    <div class="mt-2 flex gap-2">
+                        <textarea class="tm-textarea" rows="2" placeholder="Leave a comment… use @@name to mention" @bind="_newComment"></textarea>
+                        <Button Loading="_commenting" OnClick="AddCommentAsync">Send</Button>
+                    </div>
+                }
+            </Card>
+
+            <Card Header="@AttachmentsHeader">
+                @if (_issue.Attachments.Count == 0)
+                {
+                    <p class="text-sm text-slate-400">No attachments.</p>
+                }
+                <ul class="space-y-1">
+                    @foreach (var a in _issue.Attachments)
+                    {
+                        <li class="flex items-center justify-between text-sm">
+                            <a class="text-brand-600 hover:underline" href="@($"/{Slug}/attachments/{a.Id}")" target="_blank">📎 @a.FileName</a>
+                            <span class="text-xs text-slate-400">@(a.SizeBytes / 1024) KB</span>
+                        </li>
+                    }
+                </ul>
+                @if (CanEdit)
+                {
+                    <div class="mt-3">
+                        <InputFile OnChange="UploadAsync" class="text-sm" />
+                    </div>
+                }
+            </Card>
+        </div>
+
+        <div class="space-y-4">
+            <Card>
+                <div class="space-y-4 text-sm">
+                    <div>
+                        <p class="tm-label">Status</p>
+                        <select class="tm-select" disabled="@(!CanEdit)" @onchange="e => ChangeStatus(e.Value?.ToString())">
+                            @foreach (var st in Enum.GetValues<IssueStatus>())
+                            {
+                                <option value="@st" selected="@(st == _issue.Status)">@IssueVisuals.StatusLabel(st)</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <p class="tm-label">Assignee</p>
+                        <UserPicker Members="_members" Value="_issue.AssigneeUserId" ValueChanged="ChangeAssignee" />
+                    </div>
+                    <div>
+                        <p class="tm-label">Priority</p>
+                        <select class="tm-select" disabled="@(!CanEdit)" @onchange="e => SaveField(() => _edit.Priority = Enum.Parse<IssuePriority>(e.Value!.ToString()!))">
+                            @foreach (var p in Enum.GetValues<IssuePriority>())
+                            {
+                                <option value="@p" selected="@(p == _issue.Priority)">@p</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <p class="tm-label">Type</p>
+                        <select class="tm-select" disabled="@(!CanEdit)" @onchange="e => SaveField(() => _edit.Type = Enum.Parse<IssueType>(e.Value!.ToString()!))">
+                            @foreach (var t in Enum.GetValues<IssueType>())
+                            {
+                                <option value="@t" selected="@(t == _issue.Type)">@t</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <p class="tm-label">Story points</p>
+                        <input type="number" class="tm-input" value="@_issue.StoryPoints" disabled="@(!CanEdit)"
+                               @onchange="e => SaveField(() => _edit.StoryPoints = int.TryParse(e.Value?.ToString(), out var v) ? v : null)" />
+                    </div>
+                    <div>
+                        <p class="tm-label">Sprint</p>
+                        <select class="tm-select" disabled="@(!CanEdit)" @onchange="e => SaveField(() => _edit.SprintId = Guid.TryParse(e.Value?.ToString(), out var v) ? v : null)">
+                            <option value="">Backlog</option>
+                            @foreach (var s in _sprints)
+                            {
+                                <option value="@s.Id" selected="@(s.Id == _issue.SprintId)">@s.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <p class="border-t border-slate-100 pt-3 text-xs text-slate-400 dark:border-slate-800">
+                        Reported by @_issue.ReporterDisplayName<br />
+                        Created @_issue.CreatedAt.LocalDateTime.ToString("g")
+                    </p>
+                </div>
+            </Card>
+
+            <Card Header="@ActivityHeader">
+                <ol class="space-y-2 text-xs text-slate-500">
+                    @foreach (var a in _issue.Activity.Take(15))
+                    {
+                        <li>
+                            <span class="font-medium text-slate-600 dark:text-slate-300">@a.ActorDisplayName</span>
+                            changed <span class="font-medium">@a.Field</span>
+                            @if (a.Field != "Comment")
+                            {
+                                <span>from “@(a.OldValue ?? "—")” to “@(a.NewValue ?? "—")”</span>
+                            }
+                            <span class="block text-slate-400">@a.CreatedAt.LocalDateTime.ToString("g")</span>
+                        </li>
+                    }
+                </ol>
+            </Card>
+        </div>
+    </div>
+
+    <ConfirmDialog Open="_confirmDelete" OpenChanged="v => _confirmDelete = v" Destructive
+                   Title="Delete issue" Message="@($"Delete {_issue.Reference}? This cannot be undone.")"
+                   ConfirmText="Delete" OnConfirm="DeleteAsync" />
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+    [Parameter] public Guid IssueId { get; set; }
+
+    private IssueDetailDto? _issue;
+    private IReadOnlyList<OrganizationMemberDto> _members = [];
+    private IReadOnlyList<SprintDto> _sprints = [];
+    private UpdateIssueRequest _edit = new();
+    private string _newComment = "";
+    private bool _commenting;
+    private bool _confirmDelete;
+
+    private RenderFragment CommentsHeader => @<span class="text-sm font-semibold">Comments (@(_issue?.Comments.Count ?? 0))</span>;
+    private RenderFragment ActivityHeader => @<span class="text-sm font-semibold">Activity</span>;
+    private RenderFragment AttachmentsHeader => @<span class="text-sm font-semibold">Attachments</span>;
+
+    private bool CanEdit => Tenant.IsResolved && RolePermissions.Allows(Tenant.Role, OrgPermission.EditIssue);
+    private bool CanComment => Tenant.IsResolved && RolePermissions.Allows(Tenant.Role, OrgPermission.CommentOnIssue);
+    private bool CanDelete => Tenant.IsResolved && RolePermissions.Allows(Tenant.Role, OrgPermission.DeleteIssue);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Tenant.IsResolved) return;
+        await LoadAsync();
+        _members = await Organizations.GetMembersAsync();
+        if (_issue is not null)
+        {
+            var project = await Projects.GetByKeyAsync(_issue.ProjectKey);
+            _sprints = await SprintSvc.GetForProjectAsync(project.Id);
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _issue = await Issues.GetAsync(IssueId);
+        _edit = new UpdateIssueRequest
+        {
+            Title = _issue.Title,
+            Description = _issue.Description,
+            Type = _issue.Type,
+            Priority = _issue.Priority,
+            AssigneeUserId = _issue.AssigneeUserId,
+            StoryPoints = _issue.StoryPoints,
+            SprintId = _issue.SprintId,
+        };
+        StateHasChanged();
+    }
+
+    private async Task SaveField(Action mutate)
+    {
+        if (!CanEdit) return;
+        mutate();
+        try
+        {
+            await Issues.UpdateAsync(IssueId, _edit);
+            await LoadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+    }
+
+    private async Task ChangeStatus(string? value)
+    {
+        if (!CanEdit || !Enum.TryParse<IssueStatus>(value, out var status)) return;
+        try
+        {
+            await Issues.ChangeStatusAsync(IssueId, status);
+            await LoadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+    }
+
+    private async Task ChangeAssignee(string? userId)
+    {
+        if (!CanEdit) return;
+        try
+        {
+            await Issues.AssignAsync(IssueId, userId);
+            await LoadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+    }
+
+    private async Task AddCommentAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newComment)) return;
+        _commenting = true;
+        try
+        {
+            await Issues.AddCommentAsync(new AddCommentRequest(IssueId, _newComment));
+            _newComment = "";
+            await LoadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _commenting = false; }
+    }
+
+    private async Task UploadAsync(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        try
+        {
+            await using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            ms.Position = 0;
+            await Attachments.UploadAsync(IssueId, ms, file.Name, file.ContentType, ms.Length);
+            Toasts.Success("Attachment uploaded.");
+            await LoadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+    }
+
+    private async Task DeleteAsync()
+    {
+        await Issues.DeleteAsync(IssueId);
+        Toasts.Success("Issue deleted.");
+        Nav.NavigateTo($"/{Slug}/projects/{_issue!.ProjectKey}/board");
+    }
+}

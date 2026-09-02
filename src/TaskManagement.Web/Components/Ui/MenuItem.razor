@@ -1,0 +1,18 @@
+@namespace TaskManagement.Web.Components.Ui
+
+<button type="button"
+        class="@($"flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700 {(Destructive ? "text-rose-600 dark:text-rose-400" : "text-slate-700 dark:text-slate-200")}")"
+        @onclick="OnClick">
+    @if (Icon is not null)
+    {
+        <span aria-hidden="true">@Icon</span>
+    }
+    @ChildContent
+</button>
+
+@code {
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public bool Destructive { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+}

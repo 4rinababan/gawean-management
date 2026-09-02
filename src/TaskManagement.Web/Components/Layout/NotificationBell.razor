@@ -1,0 +1,94 @@
+@namespace TaskManagement.Web.Components.Layout
+@implements IAsyncDisposable
+@rendermode InteractiveServer
+@inject NotificationService Notifications
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<DropdownMenu>
+    <Trigger>
+        <button type="button" class="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800" aria-label="Notifications">
+            🔔
+            @if (_unread > 0)
+            {
+                <span class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">@(_unread > 9 ? "9+" : _unread)</span>
+            }
+        </button>
+    </Trigger>
+    <ChildContent>
+        <div class="flex items-center justify-between border-b border-slate-100 px-3 py-2 dark:border-slate-700">
+            <span class="text-sm font-semibold">Notifications</span>
+            @if (_unread > 0)
+            {
+                <button class="text-xs text-brand-600 hover:underline" @onclick="MarkAllRead">Mark all read</button>
+            }
+        </div>
+        <div class="max-h-80 w-80 overflow-auto">
+            @if (_items.Count == 0)
+            {
+                <p class="px-3 py-6 text-center text-sm text-slate-400">You're all caught up.</p>
+            }
+            @foreach (var n in _items)
+            {
+                <button type="button" @key="n.Id"
+                        class="@($"block w-full border-b border-slate-50 px-3 py-2 text-left text-sm last:border-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800 {(n.IsRead ? "opacity-60" : "")}")"
+                        @onclick="() => Open(n)">
+                    <span class="text-slate-700 dark:text-slate-200">@n.Message</span>
+                    <span class="mt-0.5 block text-xs text-slate-400">@n.CreatedAt.LocalDateTime.ToString("g")</span>
+                </button>
+            }
+        </div>
+    </ChildContent>
+</DropdownMenu>
+
+@code {
+    private IReadOnlyList<NotificationDto> _items = [];
+    private int _unread;
+    private DotNetObjectReference<NotificationBell>? _ref;
+    private IJSObjectReference? _module;
+    private IJSObjectReference? _connection;
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _ref = DotNetObjectReference.Create(this);
+        _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/notifications.js");
+        _connection = await _module.InvokeAsync<IJSObjectReference>("connect", NotificationHub.HubUrl, _ref);
+    }
+
+    [JSInvokable]
+    public async Task OnNotified() => await RefreshAsync();
+
+    private async Task RefreshAsync()
+    {
+        _items = await Notifications.GetRecentAsync();
+        _unread = await Notifications.GetUnreadCountAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task MarkAllRead()
+    {
+        await Notifications.MarkAllReadAsync();
+        await RefreshAsync();
+    }
+
+    private async Task Open(NotificationDto n)
+    {
+        if (!n.IsRead) await Notifications.MarkReadAsync(n.Id);
+        if (!string.IsNullOrEmpty(n.Url)) Nav.NavigateTo(n.Url, forceLoad: false);
+        await RefreshAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_connection is not null) await _connection.InvokeVoidAsync("stop");
+            if (_module is not null) await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException) { }
+        _ref?.Dispose();
+    }
+}

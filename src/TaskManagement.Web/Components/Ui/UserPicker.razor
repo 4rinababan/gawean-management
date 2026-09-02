@@ -1,0 +1,68 @@
+@namespace TaskManagement.Web.Components.Ui
+
+<div class="relative" @onfocusout="OnFocusOut">
+    <button type="button" class="tm-select flex items-center gap-2 text-left" @onclick="Toggle">
+        @if (Selected is not null)
+        {
+            <Avatar Name="@Selected.DisplayName" Color="@Selected.AvatarColor" Size="xs" />
+            <span class="truncate">@Selected.DisplayName</span>
+        }
+        else
+        {
+            <span class="text-slate-400">@Placeholder</span>
+        }
+    </button>
+
+    @if (_open)
+    {
+        <div class="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+            <input class="tm-input mx-2 my-1 !w-[calc(100%-1rem)]" placeholder="Search people…"
+                   @bind="_filter" @bind:event="oninput" @onclick:stopPropagation="true" />
+            @if (AllowUnassigned)
+            {
+                <button type="button" class="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                        @onclick="() => Pick(null)">
+                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-xs dark:bg-slate-600">∅</span>
+                    Unassigned
+                </button>
+            }
+            @foreach (var m in Filtered)
+            {
+                <button type="button" class="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                        @onclick="() => Pick(m.UserId)">
+                    <Avatar Name="@m.DisplayName" Color="@m.AvatarColor" Size="xs" />
+                    <span class="truncate">@m.DisplayName</span>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<OrganizationMemberDto> Members { get; set; } = [];
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "Select a person";
+    [Parameter] public bool AllowUnassigned { get; set; } = true;
+
+    private bool _open;
+    private string _filter = "";
+
+    private OrganizationMemberDto? Selected => Members.FirstOrDefault(m => m.UserId == Value);
+
+    private IEnumerable<OrganizationMemberDto> Filtered => string.IsNullOrWhiteSpace(_filter)
+        ? Members
+        : Members.Where(m => m.DisplayName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                             || m.Email.Contains(_filter, StringComparison.OrdinalIgnoreCase));
+
+    private void Toggle() => _open = !_open;
+
+    private void OnFocusOut() => _open = false;
+
+    private async Task Pick(string? userId)
+    {
+        _open = false;
+        Value = userId;
+        await ValueChanged.InvokeAsync(userId);
+    }
+}

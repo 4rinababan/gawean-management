@@ -1,0 +1,46 @@
+@page "/invitations/accept"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject InvitationService Invitations
+@inject NavigationManager Nav
+
+<PageTitle>Accept invitation</PageTitle>
+
+<div class="mx-auto max-w-md py-16 text-center">
+    @if (_error is not null)
+    {
+        <EmptyState Icon="⚠️" Title="Can't accept this invitation" Description="@_error">
+            <Actions><a href="/"><Button>Go to your workspaces</Button></a></Actions>
+        </EmptyState>
+    }
+    else
+    {
+        <Spinner Class="mx-auto h-8 w-8 text-brand-500" />
+        <p class="mt-4 text-sm text-slate-500">Joining the workspace…</p>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Token { get; set; }
+
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Token))
+        {
+            _error = "The invitation link is missing its token.";
+            return;
+        }
+
+        try
+        {
+            var result = await Invitations.AcceptAsync(Token);
+            Nav.NavigateTo($"/{result.OrganizationSlug}");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

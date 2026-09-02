@@ -1,0 +1,92 @@
+@page "/{Slug}/projects/{Key}/backlog"
+@rendermode InteractiveServer
+@layout OrgLayout
+@attribute [Authorize]
+@inject ProjectService Projects
+@inject IssueService Issues
+@inject NavigationManager Nav
+@inject ITenantContext Tenant
+
+<PageTitle>@Key backlog</PageTitle>
+
+@if (_project is null)
+{
+    <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+}
+else
+{
+    <PageHeader Title="@($"{_project.Name} · Backlog")" Subtitle="Unscheduled issues not yet assigned to a sprint.">
+        <Actions>
+            @if (CanCreate)
+            {
+                <Button Icon="➕" OnClick="() => _showCreate = true">Create issue</Button>
+            }
+        </Actions>
+    </PageHeader>
+
+    <ProjectTabs Slug="@Slug" Key="@Key" Current="backlog" />
+
+    @if (_issues is null)
+    {
+        <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+    }
+    else if (_issues.Count == 0)
+    {
+        <EmptyState Icon="✅" Title="Backlog is empty" Description="Every open issue is scheduled into a sprint." />
+    }
+    else
+    {
+        <Card Padded="false">
+            <ul class="divide-y divide-slate-100 dark:divide-slate-800">
+                @foreach (var issue in _issues)
+                {
+                    <li class="flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                        @onclick="() => Open(issue.Id)" @key="issue.Id">
+                        <span class="@IssueVisuals.TypeIcon(issue.Type)" title="@issue.Type">@IssueVisuals.TypeSymbol(issue.Type)</span>
+                        <span class="w-20 shrink-0 font-mono text-xs text-slate-400">@issue.Reference</span>
+                        <span class="flex-1 truncate text-sm text-slate-700 dark:text-slate-200">@issue.Title</span>
+                        <Badge Color="IssueVisuals.PriorityColor(issue.Priority)">@issue.Priority</Badge>
+                        @if (issue.StoryPoints is int sp)
+                        {
+                            <span class="rounded bg-slate-100 px-1.5 text-xs font-semibold text-slate-500 dark:bg-slate-700">@sp</span>
+                        }
+                        @if (issue.AssigneeUserId is not null)
+                        {
+                            <Avatar Name="@issue.AssigneeDisplayName" Color="@issue.AssigneeAvatarColor" Size="xs" />
+                        }
+                    </li>
+                }
+            </ul>
+        </Card>
+    }
+
+    <CreateIssueModal Open="_showCreate" OpenChanged="v => _showCreate = v"
+                      ProjectId="_project.Id" OnCreated="_ => ReloadAsync()" />
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+    [Parameter] public string Key { get; set; } = "";
+
+    private ProjectDto? _project;
+    private IReadOnlyList<IssueListItemDto>? _issues;
+    private bool _showCreate;
+
+    private bool CanCreate => Tenant.IsResolved && RolePermissions.Allows(Tenant.Role, OrgPermission.CreateIssue);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Tenant.IsResolved) return;
+        _project = await Projects.GetByKeyAsync(Key);
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        if (_project is null) return;
+        _issues = await Issues.GetBacklogAsync(_project.Id);
+        StateHasChanged();
+    }
+
+    private void Open(Guid id) => Nav.NavigateTo($"/{Slug}/issues/{id}");
+}

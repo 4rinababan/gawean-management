@@ -1,0 +1,18 @@
+@namespace TaskManagement.Web.Components.Ui
+
+<div class="@($"rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 {Class}")"
+     @attributes="AdditionalAttributes">
+    @if (Header is not null)
+    {
+        <div class="border-b border-slate-100 px-5 py-3 dark:border-slate-800">@Header</div>
+    }
+    <div class="@(Padded ? "p-5" : "")">@ChildContent</div>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? Header { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool Padded { get; set; } = true;
+    [Parameter] public string? Class { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+}

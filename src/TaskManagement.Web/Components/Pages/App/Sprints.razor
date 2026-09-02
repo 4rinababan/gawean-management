@@ -1,0 +1,206 @@
+@page "/{Slug}/projects/{Key}/sprints"
+@rendermode InteractiveServer
+@layout OrgLayout
+@attribute [Authorize]
+@inject ProjectService Projects
+@inject SprintService SprintSvc
+@inject ToastService Toasts
+@inject ITenantContext Tenant
+
+<PageTitle>@Key sprints</PageTitle>
+
+@if (_project is null)
+{
+    <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+}
+else
+{
+    <PageHeader Title="@($"{_project.Name} · Sprints")" Subtitle="Plan iterations, then start one to populate the board.">
+        <Actions>
+            @if (CanManage)
+            {
+                <Button Icon="➕" OnClick="() => _showCreate = true">New sprint</Button>
+            }
+        </Actions>
+    </PageHeader>
+
+    <ProjectTabs Slug="@Slug" Key="@Key" Current="sprints" />
+
+    @if (_sprints is null)
+    {
+        <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+    }
+    else if (_sprints.Count == 0)
+    {
+        <EmptyState Icon="🏃" Title="No sprints yet" Description="Create a sprint to group issues into a time-boxed iteration." />
+    }
+    else
+    {
+        <div class="space-y-4">
+            @foreach (var s in _sprints)
+            {
+                <Card>
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-semibold text-slate-900 dark:text-slate-100">@s.Name</h3>
+                                <Badge Color="@StateColor(s.State)">@s.State</Badge>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(s.Goal))
+                            {
+                                <p class="mt-1 text-sm text-slate-500">@s.Goal</p>
+                            }
+                            <p class="mt-1 text-xs text-slate-400">
+                                @s.IssueCount issue@(s.IssueCount == 1 ? "" : "s") ·
+                                @s.CompletedPoints / @s.TotalPoints points
+                                @if (s.StartDate is { } sd && s.EndDate is { } ed)
+                                {
+                                    <span> · @sd.ToString("MMM d") – @ed.ToString("MMM d")</span>
+                                }
+                            </p>
+                        </div>
+                        @if (CanManage)
+                        {
+                            <div class="flex gap-2">
+                                @if (s.State == SprintState.Planned)
+                                {
+                                    <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => BeginStart(s)">Start sprint</Button>
+                                }
+                                else if (s.State == SprintState.Active)
+                                {
+                                    <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => CompleteAsync(s)">Complete</Button>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    @if (s.State != SprintState.Planned)
+                    {
+                        <BurndownChart Sprint="s" />
+                    }
+                </Card>
+            }
+        </div>
+    }
+
+    <Modal Open="_showCreate" OpenChanged="v => _showCreate = v" Title="New sprint">
+        <EditForm Model="_createForm" OnValidSubmit="CreateAsync">
+            <FluentValidationValidator />
+            <div class="space-y-4">
+                <Field Label="Name" Required>
+                    <InputText @bind-Value="_createForm.Name" class="tm-input" placeholder="Sprint 1" />
+                    <ValidationMessage For="() => _createForm.Name" class="mt-1 block text-xs text-rose-500" />
+                </Field>
+                <Field Label="Goal">
+                    <InputTextArea @bind-Value="_createForm.Goal" class="tm-textarea" rows="2" />
+                </Field>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => _showCreate = false">Cancel</Button>
+                <Button Type="submit" Loading="_busy">Create</Button>
+            </div>
+        </EditForm>
+    </Modal>
+
+    <Modal Open="_startSprint is not null" OpenChanged="v => { if (!v) _startSprint = null; }" Title="Start sprint">
+        <EditForm Model="_startForm" OnValidSubmit="StartAsync">
+            <FluentValidationValidator />
+            <div class="grid grid-cols-2 gap-3">
+                <Field Label="Start date">
+                    <InputDate @bind-Value="_startForm.StartDate" class="tm-input" />
+                </Field>
+                <Field Label="End date">
+                    <InputDate @bind-Value="_startForm.EndDate" class="tm-input" />
+                    <ValidationMessage For="() => _startForm.EndDate" class="mt-1 block text-xs text-rose-500" />
+                </Field>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => _startSprint = null">Cancel</Button>
+                <Button Type="submit" Loading="_busy">Start</Button>
+            </div>
+        </EditForm>
+    </Modal>
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+    [Parameter] public string Key { get; set; } = "";
+
+    private ProjectDto? _project;
+    private IReadOnlyList<SprintDto>? _sprints;
+    private bool _showCreate;
+    private bool _busy;
+    private CreateSprintRequest _createForm = new();
+    private SprintDto? _startSprint;
+    private StartSprintRequest _startForm = new();
+
+    private bool CanManage => Tenant.IsResolved && RolePermissions.Allows(Tenant.Role, OrgPermission.ManageSprints);
+
+    private static Badge.BadgeColor StateColor(SprintState s) => s switch
+    {
+        SprintState.Active => Badge.BadgeColor.Green,
+        SprintState.Completed => Badge.BadgeColor.Slate,
+        _ => Badge.BadgeColor.Blue,
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Tenant.IsResolved) return;
+        _project = await Projects.GetByKeyAsync(Key);
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        if (_project is null) return;
+        _sprints = await SprintSvc.GetForProjectAsync(_project.Id);
+        StateHasChanged();
+    }
+
+    private async Task CreateAsync()
+    {
+        _busy = true;
+        try
+        {
+            _createForm.ProjectId = _project!.Id;
+            await SprintSvc.CreateAsync(_createForm);
+            _createForm = new CreateSprintRequest();
+            _showCreate = false;
+            Toasts.Success("Sprint created.");
+            await ReloadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _busy = false; }
+    }
+
+    private void BeginStart(SprintDto s)
+    {
+        _startSprint = s;
+        _startForm = new StartSprintRequest();
+    }
+
+    private async Task StartAsync()
+    {
+        _busy = true;
+        try
+        {
+            await SprintSvc.StartAsync(_startSprint!.Id, _startForm);
+            _startSprint = null;
+            Toasts.Success("Sprint started.");
+            await ReloadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _busy = false; }
+    }
+
+    private async Task CompleteAsync(SprintDto s)
+    {
+        try
+        {
+            await SprintSvc.CompleteAsync(s.Id, null);
+            Toasts.Success("Sprint completed. Unfinished issues moved to the backlog.");
+            await ReloadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+    }
+}

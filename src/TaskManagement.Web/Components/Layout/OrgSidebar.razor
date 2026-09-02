@@ -1,0 +1,58 @@
+@namespace TaskManagement.Web.Components.Layout
+@inject ProjectService Projects
+@inject ITenantContext Tenant
+
+<nav class="space-y-6 text-sm">
+    <div>
+        <a href="@($"/{Slug}")" class="@NavClass(IsExact($"/{Slug}"))">🏠 Overview</a>
+        <a href="@($"/{Slug}/members")" class="@NavClass(Contains("/members"))">👥 Members</a>
+    </div>
+
+    <div>
+        <p class="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Projects</p>
+        @if (_projects is null)
+        {
+            <div class="px-2"><Spinner Class="h-4 w-4" /></div>
+        }
+        else
+        {
+            @foreach (var p in _projects)
+            {
+                <a href="@($"/{Slug}/projects/{p.Key}/board")" class="@NavClass(Contains($"/projects/{p.Key}/"))">
+                    <span class="inline-flex h-5 w-5 items-center justify-center rounded bg-slate-200 text-[10px] font-bold dark:bg-slate-700">@p.Key[..System.Math.Min(2, p.Key.Length)]</span>
+                    <span class="truncate">@p.Name</span>
+                </a>
+            }
+            @if (CanManageProjects)
+            {
+                <a href="@($"/{Slug}/projects/new")" class="@NavClass(false)">➕ New project</a>
+            }
+        }
+    </div>
+</nav>
+
+@code {
+    [Parameter, EditorRequired] public string Slug { get; set; } = "";
+
+    private IReadOnlyList<ProjectDto>? _projects;
+
+    private bool CanManageProjects => RolePermissions.Allows(Tenant.Role, OrgPermission.ManageProjects);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Tenant.IsResolved)
+            _projects = await Projects.GetAllAsync();
+    }
+
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private string Rel => "/" + Nav.ToBaseRelativePath(Nav.Uri);
+    private bool IsExact(string path) => Rel.TrimEnd('/').Equals(path.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+    private bool Contains(string fragment) => Rel.Contains(fragment, StringComparison.OrdinalIgnoreCase);
+
+    private static string NavClass(bool active) =>
+        "flex items-center gap-2 rounded-lg px-2 py-1.5 font-medium transition " +
+        (active
+            ? "bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
+            : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800");
+}

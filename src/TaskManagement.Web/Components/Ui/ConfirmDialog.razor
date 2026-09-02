@@ -1,0 +1,39 @@
+@namespace TaskManagement.Web.Components.Ui
+
+<Modal Open="Open" OpenChanged="OpenChanged" Title="@Title" Width="sm">
+    <ChildContent>
+        <p class="text-sm text-slate-600 dark:text-slate-300">@Message</p>
+    </ChildContent>
+    <Footer>
+        <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => OpenChanged.InvokeAsync(false)">@CancelText</Button>
+        <Button Variant="@(Destructive ? Button.ButtonVariant.Danger : Button.ButtonVariant.Primary)"
+                Loading="_busy" OnClick="Confirm">@ConfirmText</Button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+    [Parameter] public string Title { get; set; } = "Are you sure?";
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public string ConfirmText { get; set; } = "Confirm";
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+    [Parameter] public bool Destructive { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+
+    private bool _busy;
+
+    private async Task Confirm()
+    {
+        _busy = true;
+        try
+        {
+            await OnConfirm.InvokeAsync();
+            await OpenChanged.InvokeAsync(false);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

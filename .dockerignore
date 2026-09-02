@@ -1,0 +1,11 @@
+**/bin
+**/obj
+**/node_modules
+**/.vs
+**/.git
+**/TestResults
+tests/
+deploy/
+*.md
+.github/
+src/TaskManagement.Web/wwwroot/css/app.generated.css

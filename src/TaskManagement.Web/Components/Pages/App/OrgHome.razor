@@ -1,0 +1,70 @@
+@page "/{Slug}"
+@rendermode InteractiveServer
+@layout OrgLayout
+@attribute [Authorize]
+@inject ProjectService Projects
+@inject ITenantContext Tenant
+
+<PageTitle>Overview</PageTitle>
+
+<PageHeader Title="Projects" Subtitle="Everything your team is working on in this workspace.">
+    <Actions>
+        @if (CanManage)
+        {
+            <a href="@($"/{Slug}/projects/new")"><Button Icon="➕">New project</Button></a>
+        }
+    </Actions>
+</PageHeader>
+
+@if (_projects is null)
+{
+    <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+}
+else if (_projects.Count == 0)
+{
+    <EmptyState Icon="📁" Title="No projects yet" Description="Create a project to start tracking issues and running sprints.">
+        <Actions>
+            @if (CanManage)
+            {
+                <a href="@($"/{Slug}/projects/new")"><Button>Create a project</Button></a>
+            }
+        </Actions>
+    </EmptyState>
+}
+else
+{
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        @foreach (var p in _projects)
+        {
+            <a href="@($"/{Slug}/projects/{p.Key}/board")" class="group">
+                <Card Class="h-full transition group-hover:border-brand-300 group-hover:shadow-md">
+                    <div class="flex items-center gap-3">
+                        <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/50 dark:text-brand-200">@p.Key</span>
+                        <div class="min-w-0">
+                            <h3 class="truncate font-semibold text-slate-900 dark:text-slate-100">@p.Name</h3>
+                            <p class="text-xs text-slate-400">@p.OpenIssueCount open issue@(p.OpenIssueCount == 1 ? "" : "s")</p>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(p.Description))
+                    {
+                        <p class="mt-3 line-clamp-2 text-sm text-slate-500 dark:text-slate-400">@p.Description</p>
+                    }
+                </Card>
+            </a>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+
+    private IReadOnlyList<ProjectDto>? _projects;
+
+    private bool CanManage => Tenant.IsResolved && RolePermissions.Allows(Tenant.Role, OrgPermission.ManageProjects);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Tenant.IsResolved)
+            _projects = await Projects.GetAllAsync();
+    }
+}

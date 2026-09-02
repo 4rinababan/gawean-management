@@ -1,0 +1,188 @@
+@page "/{Slug}/members"
+@rendermode InteractiveServer
+@layout OrgLayout
+@attribute [Authorize]
+@inject OrganizationService Organizations
+@inject InvitationService Invitations
+@inject ToastService Toasts
+@inject ITenantContext Tenant
+
+<PageTitle>Members</PageTitle>
+
+<PageHeader Title="Members" Subtitle="People in this workspace and their roles.">
+    <Actions>
+        @if (CanManage)
+        {
+            <Button Icon="✉️" OnClick="() => _showInvite = true">Invite people</Button>
+        }
+    </Actions>
+</PageHeader>
+
+@if (_members is null)
+{
+    <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+}
+else
+{
+    <Card Padded="false">
+        <table class="w-full text-sm">
+            <thead class="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400 dark:border-slate-800">
+                <tr>
+                    <th class="px-4 py-2">Name</th>
+                    <th class="px-4 py-2">Email</th>
+                    <th class="px-4 py-2">Role</th>
+                    <th class="px-4 py-2"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                @foreach (var m in _members)
+                {
+                    <tr @key="m.UserId">
+                        <td class="flex items-center gap-2 px-4 py-2.5">
+                            <Avatar Name="@m.DisplayName" Color="@m.AvatarColor" Size="sm" />
+                            @m.DisplayName
+                        </td>
+                        <td class="px-4 py-2.5 text-slate-500">@m.Email</td>
+                        <td class="px-4 py-2.5">
+                            @if (CanManage)
+                            {
+                                <select class="tm-select !py-1 !w-auto" @onchange="e => ChangeRole(m, e.Value?.ToString())">
+                                    @foreach (var r in Enum.GetValues<OrgRole>())
+                                    {
+                                        <option value="@r" selected="@(r == m.Role)">@r</option>
+                                    }
+                                </select>
+                            }
+                            else
+                            {
+                                <Badge>@m.Role</Badge>
+                            }
+                        </td>
+                        <td class="px-4 py-2.5 text-right">
+                            @if (CanManage)
+                            {
+                                <button class="text-xs text-rose-500 hover:underline" @onclick="() => RemoveAsync(m)">Remove</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </Card>
+
+    @if (CanManage && _pending is { Count: > 0 })
+    {
+        <h2 class="mb-2 mt-8 text-sm font-semibold text-slate-500">Pending invitations</h2>
+        <Card Padded="false">
+            <ul class="divide-y divide-slate-100 dark:divide-slate-800">
+                @foreach (var i in _pending)
+                {
+                    <li class="flex items-center justify-between px-4 py-2.5 text-sm" @key="i.Id">
+                        <span>@i.Email <Badge>@i.Role</Badge></span>
+                        <span class="text-xs text-slate-400">
+                            invited by @i.InvitedByDisplayName · expires @i.ExpiresAt.LocalDateTime.ToString("d")
+                            <button class="ml-3 text-rose-500 hover:underline" @onclick="() => RevokeAsync(i.Id)">Revoke</button>
+                        </span>
+                    </li>
+                }
+            </ul>
+        </Card>
+    }
+}
+
+<Modal Open="_showInvite" OpenChanged="v => _showInvite = v" Title="Invite people">
+    <EditForm Model="_invite" OnValidSubmit="InviteAsync">
+        <FluentValidationValidator />
+        <div class="space-y-4">
+            <Field Label="Email address" Required>
+                <InputText @bind-Value="_invite.Email" class="tm-input" placeholder="teammate@company.com" />
+                <ValidationMessage For="() => _invite.Email" class="mt-1 block text-xs text-rose-500" />
+            </Field>
+            <Field Label="Role">
+                <InputSelect @bind-Value="_invite.Role" class="tm-select">
+                    @foreach (var r in Enum.GetValues<OrgRole>())
+                    {
+                        <option value="@r">@r</option>
+                    }
+                </InputSelect>
+            </Field>
+        </div>
+        <div class="mt-6 flex justify-end gap-2">
+            <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => _showInvite = false">Cancel</Button>
+            <Button Type="submit" Loading="_busy">Send invitation</Button>
+        </div>
+    </EditForm>
+</Modal>
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+
+    private IReadOnlyList<OrganizationMemberDto>? _members;
+    private IReadOnlyList<InvitationDto>? _pending;
+    private readonly InviteMemberRequest _invite = new();
+    private bool _showInvite;
+    private bool _busy;
+
+    private bool CanManage => Tenant.IsResolved && RolePermissions.Allows(Tenant.Role, OrgPermission.ManageMembers);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Tenant.IsResolved)
+            await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        _members = await Organizations.GetMembersAsync();
+        if (CanManage) _pending = await Invitations.GetPendingAsync();
+        StateHasChanged();
+    }
+
+    private async Task ChangeRole(OrganizationMemberDto m, string? role)
+    {
+        if (!Enum.TryParse<OrgRole>(role, out var parsed)) return;
+        try
+        {
+            await Organizations.ChangeMemberRoleAsync(m.UserId, parsed);
+            Toasts.Success($"{m.DisplayName} is now {parsed}.");
+            await ReloadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); await ReloadAsync(); }
+    }
+
+    private async Task RemoveAsync(OrganizationMemberDto m)
+    {
+        try
+        {
+            await Organizations.RemoveMemberAsync(m.UserId);
+            Toasts.Success($"{m.DisplayName} removed.");
+            await ReloadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+    }
+
+    private async Task InviteAsync()
+    {
+        _busy = true;
+        try
+        {
+            await Invitations.InviteAsync(_invite);
+            Toasts.Success($"Invitation sent to {_invite.Email}.");
+            _invite.Email = "";
+            _showInvite = false;
+            await ReloadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _busy = false; }
+    }
+
+    private async Task RevokeAsync(Guid id)
+    {
+        try
+        {
+            await Invitations.RevokeAsync(id);
+            await ReloadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+    }
+}

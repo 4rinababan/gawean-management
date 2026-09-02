@@ -1,0 +1,75 @@
+@page "/{Slug}/projects/new"
+@rendermode InteractiveServer
+@layout OrgLayout
+@attribute [Authorize]
+@inject ProjectService Projects
+@inject OrganizationService Organizations
+@inject NavigationManager Nav
+@inject ToastService Toasts
+@inject ITenantContext Tenant
+
+<PageTitle>New project</PageTitle>
+
+<PageHeader Title="New project" Subtitle="Projects group issues, sprints and a board. The key prefixes every issue reference." />
+
+<Card Class="max-w-xl">
+    <EditForm Model="_form" OnValidSubmit="SubmitAsync">
+        <FluentValidationValidator />
+        <div class="space-y-4">
+            <Field Label="Name" Required>
+                <InputText @bind-Value="_form.Name" class="tm-input" placeholder="Website redesign" />
+                <ValidationMessage For="() => _form.Name" class="mt-1 block text-xs text-rose-500" />
+            </Field>
+            <Field Label="Key" Required Hint="2–10 letters/digits, e.g. WEB. Used as WEB-1, WEB-2…">
+                <InputText @bind-Value="_form.Key" class="tm-input uppercase" placeholder="WEB" />
+                <ValidationMessage For="() => _form.Key" class="mt-1 block text-xs text-rose-500" />
+            </Field>
+            <Field Label="Description">
+                <InputTextArea @bind-Value="_form.Description" class="tm-textarea" rows="3" />
+            </Field>
+            <Field Label="Project lead">
+                <UserPicker Members="_members" @bind-Value="_form.LeadUserId" Placeholder="Unassigned" />
+            </Field>
+        </div>
+        <div class="mt-6 flex justify-end gap-2">
+            <a href="@($"/{Slug}")"><Button Variant="Button.ButtonVariant.Secondary">Cancel</Button></a>
+            <Button Type="submit" Loading="_busy">Create project</Button>
+        </div>
+    </EditForm>
+</Card>
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+
+    private readonly CreateProjectRequest _form = new();
+    private IReadOnlyList<OrganizationMemberDto> _members = [];
+    private bool _busy;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Tenant.IsResolved && !RolePermissions.Allows(Tenant.Role, OrgPermission.ManageProjects))
+            Nav.NavigateTo($"/{Slug}");
+        else if (Tenant.IsResolved)
+            _members = await Organizations.GetMembersAsync();
+    }
+
+    private async Task SubmitAsync()
+    {
+        _busy = true;
+        try
+        {
+            _form.Key = _form.Key.ToUpperInvariant();
+            var created = await Projects.CreateAsync(_form);
+            Toasts.Success($"Project {created.Key} created.");
+            Nav.NavigateTo($"/{Slug}/projects/{created.Key}/board");
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error(ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

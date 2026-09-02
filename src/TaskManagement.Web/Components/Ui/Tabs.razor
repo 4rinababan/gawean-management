@@ -1,0 +1,32 @@
+@namespace TaskManagement.Web.Components.Ui
+
+<div class="border-b border-slate-200 dark:border-slate-800">
+    <nav class="-mb-px flex gap-1">
+        @foreach (var tab in Items)
+        {
+            <button type="button" @key="tab.Key"
+                    class="@($"border-b-2 px-3 py-2 text-sm font-medium transition {(tab.Key == Active ? "border-brand-600 text-brand-700 dark:text-brand-300" : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:text-slate-400")}")"
+                    @onclick="() => Select(tab.Key)">
+                @tab.Label
+                @if (tab.Count is int c)
+                {
+                    <span class="ml-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500 dark:bg-slate-800">@c</span>
+                }
+            </button>
+        }
+    </nav>
+</div>
+
+@code {
+    public sealed record TabItem(string Key, string Label, int? Count = null);
+
+    [Parameter, EditorRequired] public IReadOnlyList<TabItem> Items { get; set; } = [];
+    [Parameter] public string? Active { get; set; }
+    [Parameter] public EventCallback<string> ActiveChanged { get; set; }
+
+    private async Task Select(string key)
+    {
+        Active = key;
+        await ActiveChanged.InvokeAsync(key);
+    }
+}

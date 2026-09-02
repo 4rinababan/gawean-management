@@ -1,0 +1,49 @@
+@namespace TaskManagement.Web.Components.Ui
+
+<button type="@Type"
+        class="@CssClass"
+        disabled="@(Disabled || Loading)"
+        @attributes="AdditionalAttributes"
+        @onclick="OnClick">
+    @if (Loading)
+    {
+        <Spinner Class="h-4 w-4" />
+    }
+    else if (Icon is not null)
+    {
+        <span class="@Icon" aria-hidden="true"></span>
+    }
+    @ChildContent
+</button>
+
+@code {
+    /// <summary>Visual weight of the button.</summary>
+    public enum ButtonVariant { Primary, Secondary, Ghost, Danger }
+
+    [Parameter] public ButtonVariant Variant { get; set; } = ButtonVariant.Primary;
+    [Parameter] public string Type { get; set; } = "button";
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public bool FullWidth { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string CssClass => string.Join(' ', new[]
+    {
+        "inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition",
+        "focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50",
+        FullWidth ? "w-full" : "",
+        Variant switch
+        {
+            ButtonVariant.Primary => "bg-brand-600 text-white hover:bg-brand-700 shadow-sm",
+            ButtonVariant.Secondary => "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700",
+            ButtonVariant.Ghost => "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+            ButtonVariant.Danger => "bg-rose-600 text-white hover:bg-rose-700 shadow-sm",
+            _ => "",
+        },
+        Class ?? "",
+    }.Where(s => !string.IsNullOrEmpty(s)));
+}

@@ -1,0 +1,14 @@
+{
+  "name": "taskmanagement-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "css:build": "tailwindcss -i ./Styles/app.css -o ./wwwroot/css/app.generated.css --minify",
+    "css:watch": "tailwindcss -i ./Styles/app.css -o ./wwwroot/css/app.generated.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.13",
+    "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/typography": "^0.5.19"
+  }
+}

@@ -1,0 +1,57 @@
+@namespace TaskManagement.Web.Components.Layout
+@inherits LayoutComponentBase
+@rendermode InteractiveServer
+@inject TenantResolver TenantResolver
+@inject ITenantContext Tenant
+@inject NavigationManager Nav
+
+@if (_state == State.Loading)
+{
+    <div class="flex justify-center py-24"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+}
+else if (_state == State.Denied)
+{
+    <EmptyState Icon="🚫" Title="You don't have access to this workspace"
+                Description="Ask an administrator to invite you, or switch to a workspace you belong to.">
+        <Actions><a href="/"><Button>Back to your workspaces</Button></a></Actions>
+    </EmptyState>
+}
+else if (_state == State.Missing)
+{
+    <EmptyState Icon="🔍" Title="Workspace not found"
+                Description="The workspace URL doesn't match anything we have.">
+        <Actions><a href="/"><Button>Back to your workspaces</Button></a></Actions>
+    </EmptyState>
+}
+else
+{
+    <div class="grid grid-cols-[220px_1fr] gap-6">
+        <OrgSidebar Slug="@Slug" />
+        <div>@Body</div>
+    </div>
+}
+
+@code {
+    private enum State { Loading, Ready, Denied, Missing }
+    private State _state = State.Loading;
+
+    private string Slug => Nav.ToBaseRelativePath(Nav.Uri).Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var slug = Slug;
+        if (string.IsNullOrEmpty(slug))
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+
+        _state = await TenantResolver.ResolveAsync(slug) switch
+        {
+            TenantResolver.Outcome.Resolved => State.Ready,
+            TenantResolver.Outcome.NotAMember => State.Denied,
+            TenantResolver.Outcome.NotFound => State.Missing,
+            _ => State.Denied,
+        };
+    }
+}

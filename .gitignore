@@ -1,0 +1,33 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+artifacts/
+TestResults/
+coverage/
+*.trx
+*.coverage
+*.cobertura.xml
+
+# EF Core local dev db
+src/TaskManagement.Web/Data/app.db
+*.db-shm
+*.db-wal
+
+# Node / Tailwind
+node_modules/
+src/TaskManagement.Web/wwwroot/css/app.generated.css
+
+# Secrets / local env
+**/appsettings.*.local.json
+deploy/.env
+*.env
+!deploy/.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.claude/
