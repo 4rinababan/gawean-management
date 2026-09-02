@@ -20,16 +20,22 @@ public sealed class OrganizationService(
         var userId = currentUser.RequireUserId();
         await using var db = dbf.CreateDbContext();
 
-        return await db.IgnoringTenantFilter<Organization>()
+        var rows = await db.IgnoringTenantFilter<Organization>()
             .Where(o => o.Members.Any(m => m.UserId == userId))
             .OrderBy(o => o.Name)
-            .Select(o => new OrganizationDto(
+            .Select(o => new
+            {
                 o.Id,
                 o.Name,
                 o.Slug,
-                o.Members.First(m => m.UserId == userId).Role,
-                o.Members.Count))
+                Role = o.Members.Where(m => m.UserId == userId).Select(m => (OrgRole?)m.Role).FirstOrDefault(),
+                MemberCount = o.Members.Count,
+            })
             .ToListAsync(ct);
+
+        return rows
+            .Select(r => new OrganizationDto(r.Id, r.Name, r.Slug, r.Role ?? OrgRole.Viewer, r.MemberCount))
+            .ToList();
     }
 
     public async Task<OrganizationDto> CreateAsync(CreateOrganizationRequest request, CancellationToken ct = default)
