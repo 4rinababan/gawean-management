@@ -27,7 +27,11 @@ public partial class Project : Entity, ITenantScoped
 
     public string? Description { get; private set; }
 
+    /// <summary>The project owner. Set to the creator unless another lead is chosen; only they (or a workspace admin) may edit the project.</summary>
     public string? LeadUserId { get; private set; }
+
+    /// <summary>Ownership check used by the application layer alongside the workspace role.</summary>
+    public bool IsOwnedBy(string userId) => LeadUserId is not null && LeadUserId == userId;
 
     /// <summary>Monotonic counter for issue numbers. The last value handed out; the next issue is <c>IssueSequence + 1</c>.</summary>
     public int IssueSequence { get; private set; }

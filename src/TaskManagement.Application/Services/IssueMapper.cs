@@ -8,8 +8,9 @@ namespace TaskManagement.Application.Services;
 internal static class IssueMapper
 {
     public static async Task<IReadOnlyList<IssueListItemDto>> ToListItemsAsync(
-        IReadOnlyList<Issue> issues, string projectKey, IUserDirectory users, CancellationToken ct)
+        IReadOnlyList<Issue> issues, string projectKey, IUserDirectory users, CancellationToken ct, DateOnly? today = null)
     {
+        var asOf = today ?? DateOnly.FromDateTime(DateTime.UtcNow);
         var directory = await users.GetManyAsync(
             issues.Where(i => i.AssigneeUserId is not null).Select(i => i.AssigneeUserId!), ct);
 
@@ -21,7 +22,8 @@ internal static class IssueMapper
 
             return new IssueListItemDto(
                 i.Id, $"{projectKey}-{i.Number}", i.Title, i.Type, i.Status, i.Priority, i.StoryPoints,
-                i.AssigneeUserId, assignee?.DisplayName, assignee?.AvatarColor, i.SprintId, i.BoardRank);
+                i.AssigneeUserId, assignee?.DisplayName, assignee?.AvatarColor, i.SprintId, i.BoardRank,
+                i.DueDate, i.IsOverdue(asOf));
         }).ToList();
     }
 }

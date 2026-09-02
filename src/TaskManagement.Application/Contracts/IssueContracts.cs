@@ -12,6 +12,7 @@ public sealed class CreateIssueRequest
     public string? AssigneeUserId { get; set; }
     public Guid? SprintId { get; set; }
     public int? StoryPoints { get; set; }
+    public DateOnly? DueDate { get; set; }
 }
 
 public sealed class UpdateIssueRequest
@@ -23,6 +24,7 @@ public sealed class UpdateIssueRequest
     public string? AssigneeUserId { get; set; }
     public int? StoryPoints { get; set; }
     public Guid? SprintId { get; set; }
+    public DateOnly? DueDate { get; set; }
 }
 
 public sealed record MoveIssueRequest(Guid IssueId, IssueStatus TargetStatus, Guid? BeforeIssueId, Guid? AfterIssueId);
@@ -39,7 +41,9 @@ public sealed record IssueListItemDto(
     string? AssigneeDisplayName,
     string? AssigneeAvatarColor,
     Guid? SprintId,
-    string BoardRank);
+    string BoardRank,
+    DateOnly? DueDate,
+    bool IsOverdue);
 
 public sealed record IssueDetailDto(
     Guid Id,
@@ -56,6 +60,7 @@ public sealed record IssueDetailDto(
     string ReporterDisplayName,
     string? AssigneeUserId,
     string? AssigneeDisplayName,
+    DateOnly? DueDate,
     Guid? SprintId,
     string? SprintName,
     DateTimeOffset CreatedAt,
@@ -68,7 +73,19 @@ public sealed record CommentDto(Guid Id, string AuthorUserId, string AuthorDispl
 
 public sealed record AddCommentRequest(Guid IssueId, string Body);
 
-public sealed record ActivityDto(Guid Id, string ActorUserId, string ActorDisplayName, string Field, string? OldValue, string? NewValue, DateTimeOffset CreatedAt);
+/// <summary>
+/// One activity-feed entry, already rendered for display: field and values are humanised
+/// (ids resolved to names, enums spaced) by the application layer so the UI just prints them.
+/// </summary>
+public sealed record ActivityDto(
+    Guid Id,
+    string ActorUserId,
+    string ActorDisplayName,
+    string FieldLabel,
+    string? OldLabel,
+    string? NewLabel,
+    bool IsComment,
+    DateTimeOffset CreatedAt);
 
 public sealed record AttachmentDto(Guid Id, string FileName, string ContentType, long SizeBytes, string UploadedByUserId, DateTimeOffset CreatedAt);
 

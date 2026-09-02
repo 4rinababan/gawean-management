@@ -32,7 +32,7 @@ else
         </Actions>
     </PageHeader>
 
-    <div class="grid gap-6 lg:grid-cols-[1fr_280px]">
+    <div class="grid gap-6 lg:grid-cols-[1fr_300px]">
         <div class="space-y-6">
             <Card>
                 <Field Label="Summary">
@@ -132,6 +132,15 @@ else
                         </select>
                     </div>
                     <div>
+                        <p class="tm-label">Due date</p>
+                        <input type="date" class="tm-input" value="@_issue.DueDate?.ToString("yyyy-MM-dd")" disabled="@(!CanEdit)"
+                               @onchange="e => SaveField(() => _edit.DueDate = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
+                        @if (_issue.DueDate is { } due && _issue.Status != IssueStatus.Done && due < DateOnly.FromDateTime(DateTime.Today))
+                        {
+                            <p class="mt-1 text-xs font-semibold text-rose-600 dark:text-rose-400">⚠ Overdue since @due.ToString("MMM d")</p>
+                        }
+                    </div>
+                    <div>
                         <p class="tm-label">Story points</p>
                         <input type="number" class="tm-input" value="@_issue.StoryPoints" disabled="@(!CanEdit)"
                                @onchange="e => SaveField(() => _edit.StoryPoints = int.TryParse(e.Value?.ToString(), out var v) ? v : null)" />
@@ -154,17 +163,34 @@ else
             </Card>
 
             <Card Header="@ActivityHeader">
-                <ol class="space-y-2 text-xs text-slate-500">
-                    @foreach (var a in _issue.Activity.Take(15))
+                @if (_issue.Activity.Count == 0)
+                {
+                    <p class="text-xs text-slate-400">No activity yet.</p>
+                }
+                <ol class="max-h-96 space-y-3 overflow-y-auto pr-1 text-xs text-slate-500">
+                    @foreach (var a in _issue.Activity)
                     {
-                        <li>
-                            <span class="font-medium text-slate-600 dark:text-slate-300">@a.ActorDisplayName</span>
-                            changed <span class="font-medium">@a.Field</span>
-                            @if (a.Field != "Comment")
-                            {
-                                <span>from “@(a.OldValue ?? "—")” to “@(a.NewValue ?? "—")”</span>
-                            }
-                            <span class="block text-slate-400">@a.CreatedAt.LocalDateTime.ToString("g")</span>
+                        <li @key="a.Id">
+                            <div>
+                                <span class="font-medium text-slate-700 dark:text-slate-200">@a.ActorDisplayName</span>
+                                @if (a.IsComment)
+                                {
+                                    <span> added a comment</span>
+                                }
+                                else if (a.OldLabel is null)
+                                {
+                                    <span> set <span class="font-medium">@a.FieldLabel</span> to “@(a.NewLabel ?? "—")”</span>
+                                }
+                                else if (a.NewLabel is null)
+                                {
+                                    <span> cleared the <span class="font-medium">@a.FieldLabel</span></span>
+                                }
+                                else
+                                {
+                                    <span> changed <span class="font-medium">@a.FieldLabel</span> to “@a.NewLabel”</span>
+                                }
+                            </div>
+                            <time class="text-slate-400">@a.CreatedAt.LocalDateTime.ToString("d MMM, HH:mm")</time>
                         </li>
                     }
                 </ol>
@@ -220,6 +246,7 @@ else
             AssigneeUserId = _issue.AssigneeUserId,
             StoryPoints = _issue.StoryPoints,
             SprintId = _issue.SprintId,
+            DueDate = _issue.DueDate,
         };
         StateHasChanged();
     }

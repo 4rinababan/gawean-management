@@ -51,6 +51,7 @@ public sealed class ServiceFixture : IDisposable
             nameof(NotificationService) => new NotificationService(Factory, CurrentUser),
             nameof(InvitationService) => new InvitationService(Factory, CurrentUser, Users, Email, guard, Clock, Urls),
             nameof(AttachmentService) => new AttachmentService(Factory, Storage, guard),
+            nameof(DashboardService) => new DashboardService(Factory, CurrentUser, Clock),
             _ => throw new NotSupportedException(typeof(T).Name),
         };
         return (T)svc;

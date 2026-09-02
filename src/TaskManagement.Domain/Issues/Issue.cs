@@ -48,6 +48,9 @@ public class Issue : Entity, ITenantScoped
 
     public int? StoryPoints { get; private set; }
 
+    /// <summary>Optional target date. An issue is overdue when this is in the past and the issue isn't Done.</summary>
+    public DateOnly? DueDate { get; private set; }
+
     public Guid? SprintId { get; private set; }
 
     public Guid? ParentIssueId { get; private set; }
@@ -101,6 +104,16 @@ public class Issue : Entity, ITenantScoped
         Record(nameof(StoryPoints), StoryPoints?.ToString(), storyPoints?.ToString(), actorUserId);
         StoryPoints = storyPoints;
     }
+
+    public void SetDueDate(DateOnly? dueDate, string actorUserId)
+    {
+        Record(nameof(DueDate), DueDate?.ToString("yyyy-MM-dd"), dueDate?.ToString("yyyy-MM-dd"), actorUserId);
+        DueDate = dueDate;
+    }
+
+    /// <summary>Past its due date and not finished. Done issues are never overdue, however late they were.</summary>
+    public bool IsOverdue(DateOnly today)
+        => Status != IssueStatus.Done && DueDate is { } due && due < today;
 
     public void Assign(string? assigneeUserId, string actorUserId)
     {

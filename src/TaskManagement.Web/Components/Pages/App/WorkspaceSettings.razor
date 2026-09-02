@@ -1,0 +1,85 @@
+@page "/{Slug}/settings"
+@rendermode InteractiveServer
+@layout OrgLayout
+@attribute [Authorize]
+@inherits OrgPageBase
+@inject OrganizationService Organizations
+@inject ToastService Toasts
+
+<PageTitle>Workspace settings</PageTitle>
+
+<PageHeader Title="Workspace settings" Subtitle="Only workspace admins can change these." />
+
+@if (!TenantReady)
+{
+    <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+}
+else if (!CanManage)
+{
+    <EmptyState Icon="🔒" Title="Admins only"
+                Description="Ask a workspace admin to change these settings.">
+        <Actions><a href="@($"/{Slug}")"><Button Variant="Button.ButtonVariant.Secondary">Back to overview</Button></a></Actions>
+    </EmptyState>
+}
+else
+{
+    <Card Class="max-w-xl">
+        <EditForm Model="_form" OnValidSubmit="SaveAsync" OnInvalidSubmit="WarnInvalid">
+            <DataAnnotationsValidator />
+            <div class="space-y-4">
+                <Field Label="Workspace name" Required>
+                    <InputText @bind-Value="_form.Name" class="tm-input" />
+                    <ValidationMessage For="() => _form.Name" class="mt-1 block text-xs text-rose-500" />
+                </Field>
+                <Field Label="Workspace URL">
+                    <input class="tm-input" value="@($"/{Slug}")" disabled />
+                    <p class="mt-1 text-xs text-slate-400">The URL is fixed — links your team has saved depend on it.</p>
+                </Field>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <a href="@($"/{Slug}")"><Button Variant="Button.ButtonVariant.Secondary">Cancel</Button></a>
+                <Button Type="submit" Loading="_busy">Save changes</Button>
+            </div>
+        </EditForm>
+    </Card>
+
+    <Card Class="mt-6 max-w-xl">
+        <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">Members</h3>
+        <p class="mt-1 text-sm text-slate-500">Invite people and manage their roles on the members page.</p>
+        <div class="mt-4"><a href="@($"/{Slug}/members")"><Button Variant="Button.ButtonVariant.Secondary">Manage members</Button></a></div>
+    </Card>
+}
+
+@code {
+    private sealed class RenameForm
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.StringLength(80, MinimumLength = 2)]
+        public string Name { get; set; } = "";
+    }
+
+    private readonly RenameForm _form = new();
+    private bool _busy;
+
+    private bool CanManage => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.ManageOrganization);
+
+    protected override async Task OnTenantReadyAsync()
+    {
+        var mine = await Organizations.GetMyOrganizationsAsync();
+        _form.Name = mine.FirstOrDefault(o => o.Slug == Slug)?.Name ?? "";
+    }
+
+    private void WarnInvalid() => Toasts.Warning("Please fix the highlighted fields.");
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        try
+        {
+            await Organizations.RenameAsync(_form.Name);
+            Toasts.Success("Workspace renamed.");
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _busy = false; }
+    }
+}

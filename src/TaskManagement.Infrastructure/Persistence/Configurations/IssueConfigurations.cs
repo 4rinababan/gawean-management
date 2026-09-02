@@ -23,6 +23,8 @@ public sealed class IssueConfiguration : IEntityTypeConfiguration<Issue>
 
         builder.HasIndex(i => new { i.ProjectId, i.Number }).IsUnique();
         builder.HasIndex(i => new { i.OrganizationId, i.Status });
+        // Dashboard reads "my open work" by assignee and orders/filters on the due date.
+        builder.HasIndex(i => new { i.AssigneeUserId, i.Status, i.DueDate });
         builder.HasIndex(i => i.SprintId);
         builder.HasIndex(i => i.AssigneeUserId);
 

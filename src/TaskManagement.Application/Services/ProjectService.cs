@@ -63,7 +63,9 @@ public sealed class ProjectService(IAppDbContextFactory dbf, IUserDirectory user
         if (await db.Projects.AnyAsync(p => p.OrganizationId == guard.OrganizationId && p.Key == key, ct))
             throw new ConflictException($"A project with key '{key}' already exists in this workspace.");
 
-        var project = new Project(guard.OrganizationId, key, request.Name, request.Description, request.LeadUserId);
+        // The creator owns the project unless they nominate someone else as lead.
+        var owner = string.IsNullOrEmpty(request.LeadUserId) ? guard.UserId : request.LeadUserId;
+        var project = new Project(guard.OrganizationId, key, request.Name, request.Description, owner);
         db.Projects.Add(project);
         await db.SaveChangesAsync(ct);
 
@@ -72,11 +74,8 @@ public sealed class ProjectService(IAppDbContextFactory dbf, IUserDirectory user
 
     public async Task UpdateAsync(Guid projectId, UpdateProjectRequest request, CancellationToken ct = default)
     {
-        guard.Require(OrgPermission.ManageProjects);
         await using var db = dbf.CreateDbContext();
-
-        var project = await db.Projects.FirstOrDefaultAsync(p => p.Id == projectId && p.OrganizationId == guard.OrganizationId, ct)
-            ?? throw NotFoundException.For<Project>(projectId);
+        var project = await RequireOwnedProjectAsync(db, projectId, ct);
 
         project.Update(request.Name, request.Description, request.LeadUserId);
         await db.SaveChangesAsync(ct);
@@ -84,13 +83,42 @@ public sealed class ProjectService(IAppDbContextFactory dbf, IUserDirectory user
 
     public async Task DeleteAsync(Guid projectId, CancellationToken ct = default)
     {
-        guard.Require(OrgPermission.ManageProjects);
         await using var db = dbf.CreateDbContext();
+        var project = await RequireOwnedProjectAsync(db, projectId, ct);
+
+        db.Projects.Remove(project);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>True when the caller may edit this project: its owner, or a workspace admin.</summary>
+    public async Task<bool> CanEditAsync(Guid projectId, CancellationToken ct = default)
+    {
+        if (!guard.Allows(OrgPermission.ViewContent))
+            return false;
+
+        await using var db = dbf.CreateDbContext();
+        var ownerId = await db.Projects
+            .Where(p => p.Id == projectId && p.OrganizationId == guard.OrganizationId)
+            .Select(p => p.LeadUserId)
+            .FirstOrDefaultAsync(ct);
+
+        return ownerId == guard.UserId || guard.Allows(OrgPermission.ManageOrganization);
+    }
+
+    /// <summary>
+    /// Project details are owner-managed: only the project's lead may change them. Workspace admins keep
+    /// access so a workspace is never left with an unmaintainable project (e.g. after the owner leaves).
+    /// </summary>
+    private async Task<Project> RequireOwnedProjectAsync(IAppDbContext db, Guid projectId, CancellationToken ct)
+    {
+        guard.Require(OrgPermission.ViewContent);
 
         var project = await db.Projects.FirstOrDefaultAsync(p => p.Id == projectId && p.OrganizationId == guard.OrganizationId, ct)
             ?? throw NotFoundException.For<Project>(projectId);
 
-        db.Projects.Remove(project);
-        await db.SaveChangesAsync(ct);
+        if (!project.IsOwnedBy(guard.UserId) && !guard.Allows(OrgPermission.ManageOrganization))
+            throw new ForbiddenException("Only the project owner or a workspace admin can change this project.");
+
+        return project;
     }
 }

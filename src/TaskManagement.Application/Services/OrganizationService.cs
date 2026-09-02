@@ -81,6 +81,19 @@ public sealed class OrganizationService(
             .ToList();
     }
 
+    /// <summary>Workspace settings are admin-only.</summary>
+    public async Task RenameAsync(string name, CancellationToken ct = default)
+    {
+        guard.Require(OrgPermission.ManageOrganization);
+        await using var db = dbf.CreateDbContext();
+
+        var org = await db.Organizations.FirstOrDefaultAsync(o => o.Id == guard.OrganizationId, ct)
+            ?? throw NotFoundException.For<Organization>(guard.OrganizationId);
+
+        org.Rename(name);
+        await db.SaveChangesAsync(ct);
+    }
+
     public async Task ChangeMemberRoleAsync(string targetUserId, OrgRole role, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ManageMembers);

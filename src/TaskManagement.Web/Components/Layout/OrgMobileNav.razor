@@ -1,0 +1,27 @@
+@namespace TaskManagement.Web.Components.Layout
+@rendermode InteractiveServer
+
+@* Its own interactive island: OrgLayout must stay statically rendered, because a layout's
+   Body is a RenderFragment and cannot be serialised across an interactive boundary. *@
+<div class="lg:hidden">
+    <button type="button"
+            class="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300"
+            @onclick="() => _open = true" aria-label="Open workspace menu">
+        ☰ Menu
+    </button>
+
+    @if (_open)
+    {
+        <div class="fixed inset-0 z-40 bg-slate-900/50" @onclick="() => _open = false"></div>
+        <nav class="fixed inset-y-0 left-0 z-50 w-64 overflow-y-auto bg-white p-4 shadow-xl dark:bg-slate-900"
+             @onclick="() => _open = false">
+            <OrgSidebar Slug="@Slug" />
+        </nav>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Slug { get; set; } = "";
+
+    private bool _open;
+}

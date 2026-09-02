@@ -1,0 +1,124 @@
+@page "/{Slug}/projects/{Key}/settings"
+@rendermode InteractiveServer
+@layout OrgLayout
+@attribute [Authorize]
+@inherits OrgPageBase
+@inject ProjectService Projects
+@inject OrganizationService Organizations
+@inject ToastService Toasts
+
+<PageTitle>@Key settings</PageTitle>
+
+@if (_project is null)
+{
+    <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+}
+else
+{
+    <PageHeader Title="@($"{_project.Name} · Settings")" Subtitle="Only the project owner (or a workspace admin) can change these." />
+
+    <ProjectTabs Slug="@Slug" Key="@Key" Current="settings" />
+
+    @if (!_canEdit)
+    {
+        <EmptyState Icon="🔒" Title="Owner only"
+                    Description="@($"{_project.LeadDisplayName ?? "The project owner"} manages this project. Ask them, or a workspace admin, to make changes.")">
+            <Actions>
+                <a href="@($"/{Slug}/projects/{Key}/board")"><Button Variant="Button.ButtonVariant.Secondary">Back to board</Button></a>
+            </Actions>
+        </EmptyState>
+    }
+    else
+    {
+        <Card Class="max-w-xl">
+            <EditForm Model="_form" OnValidSubmit="SaveAsync" OnInvalidSubmit="WarnInvalid">
+                <FluentValidationValidator />
+                <div class="space-y-4">
+                    <Field Label="Name" Required>
+                        <InputText @bind-Value="_form.Name" class="tm-input" />
+                        <ValidationMessage For="() => _form.Name" class="mt-1 block text-xs text-rose-500" />
+                    </Field>
+                    <Field Label="Description">
+                        <InputTextArea @bind-Value="_form.Description" class="tm-textarea" rows="3" />
+                    </Field>
+                    <Field Label="Project owner" Hint="Handing this over means you can no longer edit the project unless you're a workspace admin.">
+                        <UserPicker Members="_members" @bind-Value="_form.LeadUserId" AllowUnassigned="false" Placeholder="Choose an owner" />
+                    </Field>
+                    <Field Label="Project key">
+                        <input class="tm-input" value="@_project.Key" disabled />
+                        <p class="mt-1 text-xs text-slate-400">The key is fixed — issue references like @_project.Key-1 depend on it.</p>
+                    </Field>
+                </div>
+                <div class="mt-6 flex justify-end gap-2">
+                    <a href="@($"/{Slug}/projects/{Key}/board")"><Button Variant="Button.ButtonVariant.Secondary">Cancel</Button></a>
+                    <Button Type="submit" Loading="_busy">Save changes</Button>
+                </div>
+            </EditForm>
+        </Card>
+
+        <Card Class="mt-6 max-w-xl border-rose-200 dark:border-rose-900">
+            <h3 class="text-sm font-semibold text-rose-700 dark:text-rose-400">Delete this project</h3>
+            <p class="mt-1 text-sm text-slate-500">
+                Every issue, sprint, comment and attachment in @_project.Key is removed. This cannot be undone.
+            </p>
+            <div class="mt-4">
+                <Button Variant="Button.ButtonVariant.Danger" OnClick="() => _confirmDelete = true">Delete project</Button>
+            </div>
+        </Card>
+
+        <ConfirmDialog Open="_confirmDelete" OpenChanged="v => _confirmDelete = v" Destructive
+                       Title="Delete project"
+                       Message="@($"Delete {_project.Key} and everything in it? This cannot be undone.")"
+                       ConfirmText="Delete project" OnConfirm="DeleteAsync" />
+    }
+}
+
+@code {
+    [Parameter] public string Key { get; set; } = "";
+
+    private ProjectDto? _project;
+    private IReadOnlyList<OrganizationMemberDto> _members = [];
+    private UpdateProjectRequest _form = new();
+    private bool _canEdit;
+    private bool _busy;
+    private bool _confirmDelete;
+
+    protected override async Task OnTenantReadyAsync()
+    {
+        _project = await Projects.GetByKeyAsync(Key);
+        _canEdit = await Projects.CanEditAsync(_project.Id);
+        _members = await Organizations.GetMembersAsync();
+        _form = new UpdateProjectRequest
+        {
+            Name = _project.Name,
+            Description = _project.Description,
+            LeadUserId = _project.LeadUserId,
+        };
+    }
+
+    private void WarnInvalid() => Toasts.Warning("Please fix the highlighted fields.");
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        try
+        {
+            await Projects.UpdateAsync(_project!.Id, _form);
+            Toasts.Success("Project updated.");
+            await OnTenantReadyAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _busy = false; }
+    }
+
+    private async Task DeleteAsync()
+    {
+        try
+        {
+            await Projects.DeleteAsync(_project!.Id);
+            Toasts.Success("Project deleted.");
+            Nav.NavigateTo($"/{Slug}");
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+    }
+}

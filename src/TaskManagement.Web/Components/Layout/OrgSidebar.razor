@@ -6,6 +6,10 @@
     <div>
         <a href="@($"/{Slug}")" class="@NavClass(IsExact($"/{Slug}"))">🏠 Overview</a>
         <a href="@($"/{Slug}/members")" class="@NavClass(Contains("/members"))">👥 Members</a>
+        @if (CanManageWorkspace)
+        {
+            <a href="@($"/{Slug}/settings")" class="@NavClass(Contains("/settings"))">⚙️ Settings</a>
+        }
     </div>
 
     <div>
@@ -37,6 +41,8 @@
     private IReadOnlyList<ProjectDto>? _projects;
 
     private bool CanManageProjects => RolePermissions.Allows(Tenant.Role, OrgPermission.ManageProjects);
+
+    private bool CanManageWorkspace => RolePermissions.Allows(Tenant.Role, OrgPermission.ManageOrganization);
 
     protected override async Task OnParametersSetAsync()
     {

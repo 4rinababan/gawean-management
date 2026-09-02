@@ -15,6 +15,8 @@ public sealed class IssueService(
     PermissionGuard guard,
     IssueChangeProcessor changeProcessor)
 {
+    private const int ActivityLimit = 30;
+
     public async Task<IReadOnlyList<IssueListItemDto>> GetBacklogAsync(Guid projectId, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ViewContent);
@@ -44,12 +46,20 @@ public sealed class IssueService(
         var activity = await db.ActivityLogs
             .Where(a => a.IssueId == issueId)
             .OrderByDescending(a => a.CreatedAt)
-            .Take(100)
+            .Take(ActivityLimit)
             .ToListAsync(ct);
         var sprint = issue.SprintId is null ? null : await db.Sprints.FindAsync([issue.SprintId], ct);
+        var sprintNames = await db.Sprints
+            .Where(s => s.ProjectId == issue.ProjectId)
+            .ToDictionaryAsync(s => s.Id, s => s.Name, ct);
 
+        // Assignee changes store user ids in Old/NewValue, so those have to be resolved too.
         var userIds = issue.Comments.Select(c => c.AuthorUserId)
             .Concat(activity.Select(a => a.ActorUserId))
+            .Concat(activity.Where(a => a.Field == nameof(Issue.AssigneeUserId))
+                .SelectMany(a => new[] { a.OldValue, a.NewValue })
+                .Where(v => !string.IsNullOrEmpty(v))
+                .Select(v => v!))
             .Append(issue.ReporterUserId)
             .Concat(issue.AssigneeUserId is null ? [] : [issue.AssigneeUserId])
             .Distinct();
@@ -63,12 +73,13 @@ public sealed class IssueService(
             issue.Title, issue.Description, issue.Type, issue.Status, issue.Priority, issue.StoryPoints,
             issue.ReporterUserId, Name(issue.ReporterUserId),
             issue.AssigneeUserId, issue.AssigneeUserId is null ? null : Name(issue.AssigneeUserId),
+            issue.DueDate,
             issue.SprintId, sprint?.Name,
             issue.CreatedAt, issue.UpdatedAt,
             issue.Comments.OrderBy(c => c.CreatedAt)
                 .Select(c => new CommentDto(c.Id, c.AuthorUserId, Name(c.AuthorUserId), Color(c.AuthorUserId), c.Body, c.CreatedAt, c.EditedAt))
                 .ToList(),
-            activity.Select(a => new ActivityDto(a.Id, a.ActorUserId, Name(a.ActorUserId), a.Field, a.OldValue, a.NewValue, a.CreatedAt)).ToList(),
+            activity.Select(a => ActivityFormatter.ToDto(a, Name, sprintNames)).ToList(),
             issue.Attachments.OrderBy(a => a.CreatedAt)
                 .Select(a => new AttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes, a.UploadedByUserId, a.CreatedAt))
                 .ToList());
@@ -88,6 +99,7 @@ public sealed class IssueService(
         if (request.Description is not null) issue.Describe(request.Description, actor);
         if (request.Priority != IssuePriority.Medium) issue.ChangePriority(request.Priority, actor);
         if (request.StoryPoints is not null) issue.Estimate(request.StoryPoints, actor);
+        if (request.DueDate is not null) issue.SetDueDate(request.DueDate, actor);
         if (request.SprintId is not null) issue.AssignToSprint(request.SprintId, actor);
         if (request.AssigneeUserId is not null) issue.Assign(request.AssigneeUserId, actor);
 
@@ -112,6 +124,7 @@ public sealed class IssueService(
         issue.ChangeType(request.Type, actor);
         issue.ChangePriority(request.Priority, actor);
         issue.Estimate(request.StoryPoints, actor);
+        issue.SetDueDate(request.DueDate, actor);
         issue.AssignToSprint(request.SprintId, actor);
         issue.Assign(request.AssigneeUserId, actor);
 

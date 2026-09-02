@@ -40,6 +40,9 @@
                     <InputNumber @bind-Value="_form.StoryPoints" class="tm-input" />
                 </Field>
             </div>
+            <Field Label="Due date" Hint="Overdue tasks are flagged on your dashboard.">
+                <InputDate @bind-Value="_form.DueDate" class="tm-input" />
+            </Field>
         </div>
         <div class="mt-6 flex justify-end gap-2">
             <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => OpenChanged.InvokeAsync(false)">Cancel</Button>

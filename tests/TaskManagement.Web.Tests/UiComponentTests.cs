@@ -119,7 +119,7 @@ public class UiComponentTests : BunitContext
     public void KanbanCard_shows_reference_points_and_assignee_avatar()
     {
         var issue = new IssueListItemDto(Guid.NewGuid(), "WEB-7", "Fix header", IssueType.Bug,
-            IssueStatus.Todo, IssuePriority.High, 5, "u1", "Grace Hopper", "#111", null, "aaa");
+            IssueStatus.Todo, IssuePriority.High, 5, "u1", "Grace Hopper", "#111", null, "aaa", null, false);
 
         var cut = Render<KanbanCard>(ps => ps.Add(p => p.Issue, issue));
 
@@ -132,7 +132,7 @@ public class UiComponentTests : BunitContext
         var id = Guid.NewGuid();
         Guid? opened = null;
         var issue = new IssueListItemDto(id, "WEB-1", "T", IssueType.Task, IssueStatus.Todo,
-            IssuePriority.Medium, null, null, null, null, null, "a");
+            IssuePriority.Medium, null, null, null, null, null, "a", null, false);
 
         var cut = Render<KanbanCard>(ps => ps
             .Add(p => p.Issue, issue)
