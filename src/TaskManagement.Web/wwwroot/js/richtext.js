@@ -33,8 +33,13 @@ export function create(element, dotNetRef, initialHtml, readOnly) {
         quill.clipboard.dangerouslyPasteHTML(initialHtml, 'silent');
     }
 
+    // Debounced: on Blazor Server every callback is a network round trip, and firing one per
+    // keystroke makes typing feel like it is dropping characters.
+    let pending;
     quill.on('text-change', (_delta, _old, source) => {
-        if (source === 'user') dotNetRef.invokeMethodAsync('OnContentChangedAsync', getHtml(quill));
+        if (source !== 'user') return;
+        clearTimeout(pending);
+        pending = setTimeout(() => dotNetRef.invokeMethodAsync('OnContentChangedAsync', getHtml(quill)), 300);
     });
 
     editors.set(element, quill);

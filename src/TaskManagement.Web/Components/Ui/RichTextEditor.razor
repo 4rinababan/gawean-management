@@ -30,24 +30,35 @@
     private IJSObjectReference? _module;
     private DotNetObjectReference<RichTextEditor>? _ref;
     private string? _lastPushed;
+    private bool _initialised;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    /// <summary>
+    /// Render once and never again. Quill replaces this element's DOM with its own (and inserts a
+    /// toolbar as a sibling), so letting Blazor diff over it on every parent re-render — which happens
+    /// on each keystroke, because the value flows up to the page — steals focus and eats input.
+    /// External value changes are pushed through JS in <see cref="OnParametersSetAsync"/> instead.
+    /// </summary>
+    protected override bool ShouldRender() => !_initialised;
+
+    protected override async Task OnParametersSetAsync()
     {
-        if (firstRender)
-        {
-            _ref = DotNetObjectReference.Create(this);
-            _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/richtext.js");
-            await _module.InvokeVoidAsync("create", _host, _ref, Value, ReadOnly);
-            _lastPushed = Value;
-            return;
-        }
-
-        // Only push down changes that came from outside (e.g. a reload after save), never echo our own.
-        if (_module is not null && Value != _lastPushed)
+        // Only push down changes that came from outside (a reload after save, or Discard) — never echo our own.
+        if (_initialised && _module is not null && Value != _lastPushed)
         {
             _lastPushed = Value;
             await _module.InvokeVoidAsync("setContent", _host, Value);
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _ref = DotNetObjectReference.Create(this);
+        _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/richtext.js");
+        await _module.InvokeVoidAsync("create", _host, _ref, Value, ReadOnly);
+        _lastPushed = Value;
+        _initialised = true;
     }
 
     [JSInvokable]
