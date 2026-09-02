@@ -95,16 +95,20 @@ public sealed class InvitationService(
             .FirstOrDefaultAsync(i => i.Token == token, ct)
             ?? throw new NotFoundException("This invitation link is invalid.");
 
-        if (!invitation.IsRedeemable(clock.UtcNow))
-            throw new ConflictException("This invitation has expired or has already been used.");
-
         var org = await db.IgnoringTenantFilter<Organization>()
             .Include(o => o.Members)
             .FirstAsync(o => o.Id == invitation.OrganizationId, ct);
 
-        if (org.Members.All(m => m.UserId != userId))
-            org.AddMember(userId, invitation.Role);
+        // Idempotent: a component can render twice (prerender + circuit). If this user already
+        // holds the invitation, or is already a member, just report success.
+        var alreadyMember = org.Members.Any(m => m.UserId == userId);
+        if (invitation.Status == InvitationStatus.Accepted && invitation.AcceptedByUserId == userId || alreadyMember)
+            return new AcceptInvitationResult(org.Slug, org.Name);
 
+        if (!invitation.IsRedeemable(clock.UtcNow))
+            throw new ConflictException("This invitation has expired or has already been used.");
+
+        org.AddMember(userId, invitation.Role);
         invitation.Accept(userId, clock.UtcNow);
 
         db.Notifications.Add(new Notification(

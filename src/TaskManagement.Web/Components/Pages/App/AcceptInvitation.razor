@@ -1,5 +1,5 @@
 @page "/invitations/accept"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize]
 @inject InvitationService Invitations
 @inject NavigationManager Nav
