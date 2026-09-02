@@ -1,17 +1,12 @@
 ﻿@inherits LayoutComponentBase
 @layout TaskManagement.Web.Components.Layout.MainLayout
 
-<h1>Manage your account</h1>
+<div class="mx-auto max-w-4xl">
+    <h1 class="mb-1 text-xl font-semibold text-slate-900 dark:text-slate-100">Account settings</h1>
+    <p class="mb-6 text-sm text-slate-500 dark:text-slate-400">Manage your profile, security and personal data.</p>
 
-<div>
-    <h2>Change your account settings</h2>
-    <hr />
-    <div class="row">
-        <div class="col-lg-3">
-            <ManageNavMenu />
-        </div>
-        <div class="col-lg-9">
-            @Body
-        </div>
+    <div class="grid gap-6 md:grid-cols-[220px_1fr]">
+        <ManageNavMenu />
+        <div class="min-w-0">@Body</div>
     </div>
 </div>

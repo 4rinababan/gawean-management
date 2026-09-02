@@ -3,32 +3,18 @@
 
 @inject SignInManager<ApplicationUser> SignInManager
 
-<ul class="nav nav-pills flex-column">
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage" Match="NavLinkMatch.All">Profile</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/Email">Email</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/ChangePassword">Password</NavLink>
-    </li>
+<nav class="flex flex-col gap-1 text-sm">
+    <NavLink class="tm-manage-link" href="Account/Manage" Match="NavLinkMatch.All">Profile</NavLink>
+    <NavLink class="tm-manage-link" href="Account/Manage/Email">Email</NavLink>
+    <NavLink class="tm-manage-link" href="Account/Manage/ChangePassword">Password</NavLink>
     @if (hasExternalLogins)
     {
-        <li class="nav-item">
-            <NavLink class="nav-link" href="Account/Manage/ExternalLogins">External logins</NavLink>
-        </li>
+        <NavLink class="tm-manage-link" href="Account/Manage/ExternalLogins">External logins</NavLink>
     }
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/TwoFactorAuthentication">Two-factor authentication</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/Passkeys">Passkeys</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/PersonalData">Personal data</NavLink>
-    </li>
-</ul>
+    <NavLink class="tm-manage-link" href="Account/Manage/TwoFactorAuthentication">Two-factor authentication</NavLink>
+    <NavLink class="tm-manage-link" href="Account/Manage/Passkeys">Passkeys</NavLink>
+    <NavLink class="tm-manage-link" href="Account/Manage/PersonalData">Personal data</NavLink>
+</nav>
 
 @code {
     private bool hasExternalLogins;

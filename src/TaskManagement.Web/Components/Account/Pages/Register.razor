@@ -17,46 +17,50 @@
 
 <PageTitle>Register</PageTitle>
 
-<h1>Register</h1>
+<div class="mx-auto max-w-sm py-8">
+    <h1 class="text-center text-2xl font-semibold text-slate-900 dark:text-slate-100">Create your account</h1>
+    <p class="mt-1 text-center text-sm text-slate-500 dark:text-slate-400">Start tracking work with your team on Taskflow.</p>
 
-<div class="row">
-    <div class="col-lg-6">
+    <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <StatusMessage Message="@Message" />
         <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
             <DataAnnotationsValidator />
-            <h2>Create a new account.</h2>
-            <hr />
             <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.DisplayName" id="Input.DisplayName" class="form-control" autocomplete="name" aria-required="true" placeholder="Ada Lovelace" />
-                <label for="Input.DisplayName">Display name</label>
-                <ValidationMessage For="() => Input.DisplayName" class="text-danger" />
+
+            <div class="space-y-4">
+                <div>
+                    <label for="Input.DisplayName" class="tm-label">Display name</label>
+                    <InputText @bind-Value="Input.DisplayName" id="Input.DisplayName" class="tm-input" autocomplete="name" aria-required="true" placeholder="Ada Lovelace" />
+                    <ValidationMessage For="() => Input.DisplayName" class="mt-1 block text-xs text-rose-500" />
+                </div>
+                <div>
+                    <label for="Input.Email" class="tm-label">Email</label>
+                    <InputText @bind-Value="Input.Email" id="Input.Email" class="tm-input" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+                    <ValidationMessage For="() => Input.Email" class="mt-1 block text-xs text-rose-500" />
+                </div>
+                <div>
+                    <label for="Input.Password" class="tm-label">Password</label>
+                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="tm-input" autocomplete="new-password" aria-required="true" placeholder="At least 6 characters" />
+                    <ValidationMessage For="() => Input.Password" class="mt-1 block text-xs text-rose-500" />
+                </div>
+                <div>
+                    <label for="Input.ConfirmPassword" class="tm-label">Confirm password</label>
+                    <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="tm-input" autocomplete="new-password" aria-required="true" placeholder="••••••••" />
+                    <ValidationMessage For="() => Input.ConfirmPassword" class="mt-1 block text-xs text-rose-500" />
+                </div>
+                <button type="submit" class="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700">Create account</button>
             </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
-                <label for="Input.Email">Email</label>
-                <ValidationMessage For="() => Input.Email" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.Password">Password</label>
-                <ValidationMessage For="() => Input.Password" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.ConfirmPassword">Confirm Password</label>
-                <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
         </EditForm>
-    </div>
-    <div class="col-lg-4 col-lg-offset-2">
-        <section>
-            <h3>Use another service to register.</h3>
-            <hr />
+
+        <div class="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
             <ExternalLoginPicker />
-        </section>
+        </div>
     </div>
+
+    <p class="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
+        Already have an account?
+        <a class="text-brand-600 hover:underline" href="Account/Login">Log in</a>
+    </p>
 </div>
 
 @code {

@@ -32,9 +32,20 @@
     @apply bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200;
   }
 
-  /* Keyboard focus ring consistent across custom controls. */
-  :focus-visible {
+  /* Keyboard focus ring for interactive controls only (not programmatically-focused headings). */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
     @apply outline-none ring-2 ring-brand-500 ring-offset-1 dark:ring-offset-slate-900;
+  }
+
+  h1:focus,
+  h2:focus,
+  h3:focus {
+    outline: none;
   }
 }
 
@@ -56,6 +67,114 @@
   .tm-label {
     @apply mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Bootstrap compatibility shim.
+   The ASP.NET Core Identity Razor pages (Components/Account/**) ship with
+   Bootstrap markup. Rather than rewrite ~30 templates, map the class names
+   they use onto Tailwind so those pages look consistent with the rest of the app.
+   --------------------------------------------------------------------------- */
+@layer components {
+  .row {
+    @apply grid gap-6 md:grid-cols-2;
+  }
+  .row > [class*="col-"] {
+    @apply min-w-0;
+  }
+  .col-lg-3 { @apply md:col-span-1; }
+
+  section > h2,
+  section > h3,
+  h1 + .row h2 {
+    @apply text-base font-semibold text-slate-900 dark:text-slate-100;
+  }
+
+  .form-floating {
+    @apply mb-4 flex flex-col-reverse;
+  }
+  .form-floating > label,
+  .form-label {
+    @apply mb-1 text-sm font-medium text-slate-700 dark:text-slate-300;
+  }
+
+  .form-control {
+    @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm
+           placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500
+           dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100;
+  }
+  .form-control.input-validation-error,
+  .form-control.invalid {
+    @apply border-rose-400 focus:border-rose-500 focus:ring-rose-500;
+  }
+
+  .checkbox {
+    @apply mb-4;
+  }
+  .checkbox label {
+    @apply flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300;
+  }
+  .form-check-input {
+    @apply h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition
+           focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-lg { @apply px-5 py-2.5; }
+  .btn-primary { @apply bg-brand-600 text-white shadow-sm hover:bg-brand-700; }
+  .btn-danger  { @apply bg-rose-600 text-white shadow-sm hover:bg-rose-700; }
+  .btn-link    { @apply text-brand-600 hover:underline; }
+  .w-100 { @apply w-full; }
+
+  .nav-pills {
+    @apply flex flex-col gap-1;
+  }
+  .nav-pills .nav-link {
+    @apply block rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100
+           dark:text-slate-300 dark:hover:bg-slate-800;
+  }
+  .nav-pills .nav-link.active {
+    @apply bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200;
+  }
+
+  .text-danger    { @apply text-sm text-rose-600 dark:text-rose-400; }
+  .text-secondary { @apply text-slate-400; }
+
+  .d-flex { display: flex; }
+  .flex-column { flex-direction: column; }
+  .d-grid { display: grid; }
+  .gap-2 { gap: 0.5rem; }
+
+  .tm-manage-link {
+    @apply block rounded-lg px-3 py-2 font-medium text-slate-600 hover:bg-slate-100
+           dark:text-slate-300 dark:hover:bg-slate-800;
+  }
+  .tm-manage-link.active {
+    @apply bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200;
+  }
+
+  ul.validation-summary-errors,
+  .validation-summary-errors ul {
+    @apply mb-4 list-disc rounded-lg border border-rose-200 bg-rose-50 py-2 pl-8 pr-3 text-sm text-rose-700
+           dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300;
+  }
+
+  /* The Identity pages separate sections with <hr/>; make it subtle. */
+  section hr,
+  .row hr {
+    @apply my-4 border-slate-200 dark:border-slate-800;
+  }
+}
+
+/* Identity pages: give the bare <h1> page title and content some breathing room + a card. */
+main > h1:first-child,
+main > .row {
+  @apply mx-auto max-w-3xl;
+}
+main > h1:first-child {
+  @apply mb-4 text-xl font-semibold text-slate-900 dark:text-slate-100;
 }
 
 /* Small helpers used by the drag-and-drop board. */
