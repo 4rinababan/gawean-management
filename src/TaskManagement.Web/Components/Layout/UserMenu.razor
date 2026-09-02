@@ -14,11 +14,11 @@
             <p class="truncate text-sm font-medium text-slate-900 dark:text-slate-100">@_name</p>
             <p class="truncate text-xs text-slate-400">@_email</p>
         </div>
-        <a href="Account/Manage" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700">⚙️ Account settings</a>
+        <a href="Account/Manage" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"><Icon Name="cog" Class="h-4 w-4" /> Account settings</a>
         <form action="Account/Logout" method="post" class="border-t border-slate-100 dark:border-slate-700">
             <AntiforgeryToken />
             <input type="hidden" name="ReturnUrl" value="" />
-            <button type="submit" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-700">↪ Sign out</button>
+            <button type="submit" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-700"><Icon Name="sign-out" Class="h-4 w-4" /> Sign out</button>
         </form>
     </ChildContent>
 </DropdownMenu>

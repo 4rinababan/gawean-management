@@ -10,7 +10,7 @@
 
 <PageHeader Title="Your dashboard" Subtitle="Work assigned to you across every workspace.">
     <Actions>
-        <Button Icon="➕" OnClick="() => _showCreate = true">New workspace</Button>
+        <Button Icon="plus" OnClick="() => _showCreate = true">New workspace</Button>
     </Actions>
 </PageHeader>
 
@@ -21,13 +21,13 @@
 else
 {
     <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatTile Label="Done" Value="_data.Stats.Done" Icon="✓" Color="StatTile.Tone.Good"
+        <StatTile Label="Done" Value="_data.Stats.Done" Icon="check-circle" Color="StatTile.Tone.Good"
                   Caption="Tasks you've completed" />
-        <StatTile Label="In progress" Value="_data.Stats.InProgress" Icon="◐" Color="StatTile.Tone.Info"
+        <StatTile Label="In progress" Value="_data.Stats.InProgress" Icon="clock" Color="StatTile.Tone.Info"
                   Caption="Being worked on or in review" />
-        <StatTile Label="Overdue" Value="_data.Stats.Overdue" Icon="!" Color="StatTile.Tone.Critical"
+        <StatTile Label="Overdue" Value="_data.Stats.Overdue" Icon="exclamation-triangle" Color="StatTile.Tone.Critical"
                   Caption="Past their due date" />
-        <StatTile Label="Projects" Value="_data.Stats.Projects" Icon="▦" Color="StatTile.Tone.Neutral"
+        <StatTile Label="Projects" Value="_data.Stats.Projects" Icon="squares" Color="StatTile.Tone.Neutral"
                   Caption="@($"Across {_data.Stats.Workspaces} workspace{(_data.Stats.Workspaces == 1 ? "" : "s")}")" />
     </div>
 
@@ -43,7 +43,7 @@ else
 
             @if (_data.MyOpenTasks.Count == 0)
             {
-                <EmptyState Icon="🎉" Title="Nothing on your plate"
+                <EmptyState Icon="check-circle" Title="Nothing on your plate"
                             Description="No open tasks are assigned to you right now." />
             }
             else
@@ -76,7 +76,7 @@ else
             <h2 class="mb-3 text-sm font-semibold text-slate-500">Workspaces</h2>
             @if (_data.Workspaces.Count == 0)
             {
-                <EmptyState Icon="🚀" Title="No workspaces yet"
+                <EmptyState Icon="rocket" Title="No workspaces yet"
                             Description="Create your first workspace to start tracking work with your team.">
                     <Actions><Button OnClick="() => _showCreate = true">Create a workspace</Button></Actions>
                 </EmptyState>

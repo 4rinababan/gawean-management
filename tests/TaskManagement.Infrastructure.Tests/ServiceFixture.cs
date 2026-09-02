@@ -48,7 +48,7 @@ public sealed class ServiceFixture : IDisposable
             nameof(BoardService) => new BoardService(Factory, Users, guard, changeProcessor),
             nameof(SprintService) => new SprintService(Factory, guard, Realtime),
             nameof(ProjectService) => new ProjectService(Factory, Users, guard),
-            nameof(OrganizationService) => new OrganizationService(Factory, CurrentUser, Users, guard),
+            nameof(OrganizationService) => new OrganizationService(Factory, CurrentUser, Users, guard, Storage),
             nameof(NotificationService) => new NotificationService(Factory, CurrentUser),
             nameof(InvitationService) => new InvitationService(Factory, CurrentUser, Users, Email, guard, Clock, Urls),
             nameof(AttachmentService) => new AttachmentService(Factory, Storage, guard),

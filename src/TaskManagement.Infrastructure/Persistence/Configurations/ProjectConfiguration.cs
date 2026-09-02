@@ -15,5 +15,12 @@ public sealed class ProjectConfiguration : IEntityTypeConfiguration<Project>
         builder.Property(p => p.Description).HasMaxLength(2000);
         builder.Property(p => p.LeadUserId).HasMaxLength(450);
         builder.HasIndex(p => new { p.OrganizationId, p.Key }).IsUnique();
+
+        // Deleting a workspace must take its projects with it — and through them the issues, sprints,
+        // comments, attachments and activity that already cascade from Project.
+        builder.HasOne<Domain.Organizations.Organization>()
+            .WithMany()
+            .HasForeignKey(p => p.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

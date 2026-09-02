@@ -9,7 +9,7 @@
 <div class="mx-auto max-w-md py-16 text-center">
     @if (_error is not null)
     {
-        <EmptyState Icon="⚠️" Title="Can't accept this invitation" Description="@_error">
+        <EmptyState Icon="exclamation-triangle" Title="Can't accept this invitation" Description="@_error">
             <Actions><a href="/"><Button>Go to your workspaces</Button></a></Actions>
         </EmptyState>
     }

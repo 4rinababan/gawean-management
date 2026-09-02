@@ -19,7 +19,7 @@ else
         <Actions>
             @if (CanManage)
             {
-                <Button Icon="➕" OnClick="() => _showCreate = true">New sprint</Button>
+                <Button Icon="plus" OnClick="() => _showCreate = true">New sprint</Button>
             }
         </Actions>
     </PageHeader>
@@ -32,7 +32,7 @@ else
     }
     else if (_sprints.Count == 0)
     {
-        <EmptyState Icon="🏃" Title="No sprints yet" Description="Create a sprint to group issues into a time-boxed iteration." />
+        <EmptyState Icon="flag" Title="No sprints yet" Description="Create a sprint to group issues into a time-boxed iteration." />
     }
     else
     {

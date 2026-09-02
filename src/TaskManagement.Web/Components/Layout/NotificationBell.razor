@@ -8,7 +8,7 @@
 <DropdownMenu Width="w-80">
     <Trigger>
         <button type="button" class="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800" aria-label="Notifications">
-            🔔
+            <Icon Name="bell" Class="h-5 w-5" />
             @if (_unread > 0)
             {
                 <span class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">@(_unread > 9 ? "9+" : _unread)</span>

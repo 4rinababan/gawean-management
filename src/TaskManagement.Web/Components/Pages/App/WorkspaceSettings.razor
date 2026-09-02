@@ -16,7 +16,7 @@
 }
 else if (!CanManage)
 {
-    <EmptyState Icon="🔒" Title="Admins only"
+    <EmptyState Icon="lock-closed" Title="Admins only"
                 Description="Ask a workspace admin to change these settings.">
         <Actions><a href="@($"/{Slug}")"><Button Variant="Button.ButtonVariant.Secondary">Back to overview</Button></a></Actions>
     </EmptyState>
@@ -48,6 +48,33 @@ else
         <p class="mt-1 text-sm text-slate-500">Invite people and manage their roles on the members page.</p>
         <div class="mt-4"><a href="@($"/{Slug}/members")"><Button Variant="Button.ButtonVariant.Secondary">Manage members</Button></a></div>
     </Card>
+
+    <Card Class="mt-6 max-w-xl border-rose-200 dark:border-rose-900">
+        <h3 class="text-sm font-semibold text-rose-700 dark:text-rose-400">Delete this workspace</h3>
+        <p class="mt-1 text-sm text-slate-500">
+            Every project, issue, sprint, comment and attachment in <strong>@_form.Name</strong> is removed
+            for all @(_memberCount) member@(_memberCount == 1 ? "" : "s"). This cannot be undone.
+        </p>
+        <div class="mt-4">
+            <Button Variant="Button.ButtonVariant.Danger" Icon="trash" OnClick="BeginDelete">Delete workspace</Button>
+        </div>
+    </Card>
+
+    <Modal Open="_showDelete" OpenChanged="v => _showDelete = v" Title="Delete workspace" Width="sm">
+        <p class="text-sm text-slate-600 dark:text-slate-300">
+            This permanently deletes <strong>@_form.Name</strong> and everything inside it.
+        </p>
+        <Field Label="Type the workspace name to confirm" Class="mt-4">
+            <input class="tm-input" placeholder="@_form.Name" @bind="_deleteConfirmation" @bind:event="oninput" />
+        </Field>
+        <div class="mt-6 flex justify-end gap-2">
+            <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => _showDelete = false">Cancel</Button>
+            <Button Variant="Button.ButtonVariant.Danger" Loading="_busy"
+                    Disabled="@(_deleteConfirmation.Trim() != _form.Name)" OnClick="DeleteAsync">
+                Delete permanently
+            </Button>
+        </div>
+    </Modal>
 }
 
 @code {
@@ -60,13 +87,37 @@ else
 
     private readonly RenameForm _form = new();
     private bool _busy;
+    private bool _showDelete;
+    private string _deleteConfirmation = "";
+    private int _memberCount;
 
     private bool CanManage => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.ManageOrganization);
 
     protected override async Task OnTenantReadyAsync()
     {
         var mine = await Organizations.GetMyOrganizationsAsync();
-        _form.Name = mine.FirstOrDefault(o => o.Slug == Slug)?.Name ?? "";
+        var current = mine.FirstOrDefault(o => o.Slug == Slug);
+        _form.Name = current?.Name ?? "";
+        _memberCount = current?.MemberCount ?? 0;
+    }
+
+    private void BeginDelete()
+    {
+        _deleteConfirmation = "";
+        _showDelete = true;
+    }
+
+    private async Task DeleteAsync()
+    {
+        _busy = true;
+        try
+        {
+            await Organizations.DeleteAsync(_deleteConfirmation);
+            Toasts.Success($"Workspace \"{_form.Name}\" deleted.");
+            Nav.NavigateTo("/", forceLoad: true); // the tenant this circuit resolved no longer exists
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _busy = false; }
     }
 
     private void WarnInvalid() => Toasts.Warning("Please fix the highlighted fields.");

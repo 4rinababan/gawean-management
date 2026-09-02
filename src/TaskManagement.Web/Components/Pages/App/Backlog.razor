@@ -18,7 +18,7 @@ else
         <Actions>
             @if (CanCreate)
             {
-                <Button Icon="➕" OnClick="() => _showCreate = true">Create issue</Button>
+                <Button Icon="plus" OnClick="() => _showCreate = true">Create issue</Button>
             }
         </Actions>
     </PageHeader>
@@ -31,7 +31,7 @@ else
     }
     else if (_issues.Count == 0)
     {
-        <EmptyState Icon="✅" Title="Backlog is empty" Description="Every open issue is scheduled into a sprint." />
+        <EmptyState Icon="check-circle" Title="Backlog is empty" Description="Every open issue is scheduled into a sprint." />
     }
     else
     {

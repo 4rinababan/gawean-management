@@ -11,7 +11,7 @@
     <Actions>
         @if (CanManage)
         {
-            <a href="@($"/{Slug}/projects/new")"><Button Icon="➕">New project</Button></a>
+            <a href="@($"/{Slug}/projects/new")"><Button Icon="plus">New project</Button></a>
         }
     </Actions>
 </PageHeader>
@@ -22,7 +22,7 @@
 }
 else if (_projects.Count == 0)
 {
-    <EmptyState Icon="📁" Title="No projects yet" Description="Create a project to start tracking issues and running sprints.">
+    <EmptyState Icon="folder" Title="No projects yet" Description="Create a project to start tracking issues and running sprints.">
         <Actions>
             @if (CanManage)
             {

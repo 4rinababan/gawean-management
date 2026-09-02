@@ -21,7 +21,7 @@ else
 
     @if (!_canEdit)
     {
-        <EmptyState Icon="🔒" Title="Owner only"
+        <EmptyState Icon="lock-closed" Title="Owner only"
                     Description="@($"{_project.LeadDisplayName ?? "The project owner"} manages this project. Ask them, or a workspace admin, to make changes.")">
             <Actions>
                 <a href="@($"/{Slug}/projects/{Key}/board")"><Button Variant="Button.ButtonVariant.Secondary">Back to board</Button></a>

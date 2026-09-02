@@ -12,7 +12,8 @@ public sealed class OrganizationService(
     IAppDbContextFactory dbf,
     ICurrentUser currentUser,
     IUserDirectory users,
-    PermissionGuard guard)
+    PermissionGuard guard,
+    IFileStorage storage)
 {
     /// <summary>Every organization the current user belongs to, for the workspace switcher.</summary>
     public async Task<IReadOnlyList<OrganizationDto>> GetMyOrganizationsAsync(CancellationToken ct = default)
@@ -92,6 +93,43 @@ public sealed class OrganizationService(
 
         org.Rename(name);
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Deletes the workspace and everything inside it. Admin-only, and the caller must retype the
+    /// workspace name — this removes every project, issue, comment, attachment and sprint by cascade.
+    /// </summary>
+    public async Task DeleteAsync(string confirmationName, CancellationToken ct = default)
+    {
+        guard.Require(OrgPermission.ManageOrganization);
+        await using var db = dbf.CreateDbContext();
+
+        var org = await db.Organizations.FirstOrDefaultAsync(o => o.Id == guard.OrganizationId, ct)
+            ?? throw NotFoundException.For<Organization>(guard.OrganizationId);
+
+        if (!string.Equals(confirmationName.Trim(), org.Name, StringComparison.Ordinal))
+            throw new ConflictException("The name you typed doesn't match this workspace.");
+
+        // Collect blob keys before the rows go: the database cascade cannot clean up the file store.
+        var storageKeys = await db.Attachments
+            .Where(a => a.OrganizationId == org.Id)
+            .Select(a => a.StorageKey)
+            .ToListAsync(ct);
+
+        db.Organizations.Remove(org);
+        await db.SaveChangesAsync(ct);
+
+        foreach (var key in storageKeys)
+        {
+            try
+            {
+                await storage.DeleteAsync(key, ct);
+            }
+            catch (Exception)
+            {
+                // The workspace is already gone; a leftover blob is not worth failing the operation.
+            }
+        }
     }
 
     public async Task ChangeMemberRoleAsync(string targetUserId, OrgRole role, CancellationToken ct = default)

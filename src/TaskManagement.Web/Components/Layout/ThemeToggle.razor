@@ -8,8 +8,8 @@
         title="@Label" aria-label="@Label"
         class="@($"relative inline-flex h-7 w-13 shrink-0 items-center rounded-full border transition-colors {TrackClass}")"
         @onclick="ToggleAsync">
-    <span class="pointer-events-none absolute left-1.5 text-[11px] leading-none @(_isDark ? "opacity-40" : "opacity-100")" aria-hidden="true">☀️</span>
-    <span class="pointer-events-none absolute right-1.5 text-[11px] leading-none @(_isDark ? "opacity-100" : "opacity-40")" aria-hidden="true">🌙</span>
+    <span class="pointer-events-none absolute left-1.5 text-[11px] leading-none @(_isDark ? "opacity-40" : "opacity-100")" aria-hidden="true"><Icon Name="sun" Class="h-3.5 w-3.5" /></span>
+    <span class="pointer-events-none absolute right-1.5 text-[11px] leading-none @(_isDark ? "opacity-100" : "opacity-40")" aria-hidden="true"><Icon Name="moon" Class="h-3.5 w-3.5" /></span>
     <span class="@($"pointer-events-none relative z-10 h-5 w-5 rounded-full bg-white shadow transition-transform {(_isDark ? "translate-x-[1.6rem]" : "translate-x-1")}")"></span>
 </button>
 

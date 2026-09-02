@@ -27,7 +27,7 @@ else
         <Actions>
             @if (CanDelete)
             {
-                <Button Variant="Button.ButtonVariant.Danger" Icon="🗑" OnClick="() => _confirmDelete = true">Delete</Button>
+                <Button Variant="Button.ButtonVariant.Danger" Icon="trash" OnClick="() => _confirmDelete = true">Delete</Button>
             }
         </Actions>
     </PageHeader>
@@ -84,7 +84,7 @@ else
                     @foreach (var a in _issue.Attachments)
                     {
                         <li class="flex items-center justify-between text-sm">
-                            <a class="text-brand-600 hover:underline" href="@($"/{Slug}/attachments/{a.Id}")" target="_blank">📎 @a.FileName</a>
+                            <a class="text-brand-600 hover:underline" href="@($"/{Slug}/attachments/{a.Id}")" target="_blank"><Icon Name="paper-clip" Class="h-4 w-4" /> @a.FileName</a>
                             <span class="text-xs text-slate-400">@(a.SizeBytes / 1024) KB</span>
                         </li>
                     }

@@ -32,5 +32,11 @@ public sealed class NotificationConfiguration : IEntityTypeConfiguration<Notific
         builder.Property(n => n.Url).HasMaxLength(400);
         builder.HasIndex(n => new { n.RecipientUserId, n.IsRead });
         builder.HasIndex(n => n.CreatedAt);
+
+        // Notifications belong to a workspace and must not outlive it.
+        builder.HasOne<Domain.Organizations.Organization>()
+            .WithMany()
+            .HasForeignKey(n => n.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -1,7 +1,9 @@
 @namespace TaskManagement.Web.Components.Ui
 
 <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 px-6 py-12 text-center dark:border-slate-700">
-    <div class="text-3xl" aria-hidden="true">@Icon</div>
+    <span class="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+        <Icon Name="@Icon" Class="h-6 w-6" />
+    </span>
     <h3 class="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-100">@Title</h3>
     @if (Description is not null)
     {
@@ -14,7 +16,8 @@
 </div>
 
 @code {
-    [Parameter] public string Icon { get; set; } = "📋";
+    /// <summary>Name of an <see cref="Ui.Icon"/> to illustrate the empty state.</summary>
+    [Parameter] public string Icon { get; set; } = "clipboard";
     [Parameter, EditorRequired] public string? Title { get; set; }
     [Parameter] public string? Description { get; set; }
     [Parameter] public RenderFragment? Actions { get; set; }

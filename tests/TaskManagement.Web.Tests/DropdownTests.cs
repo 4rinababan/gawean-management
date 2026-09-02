@@ -88,7 +88,24 @@ public class DropdownTests : BunitContext
     }
 
     [Fact]
-    public void UserPicker_can_clear_the_selection()
+    public void UserPicker_shows_the_selection_as_a_chip_that_can_be_removed()
+    {
+        IReadOnlyList<OrganizationMemberDto> members = [new("u1", "Ada Lovelace", "ada@x.com", "#111", OrgRole.Member)];
+        string? picked = "u1";
+
+        var cut = Render<UserPicker>(ps => ps
+            .Add(p => p.Members, members)
+            .Add(p => p.Value, "u1")
+            .Add(p => p.ValueChanged, v => picked = v));
+
+        cut.Markup.Should().Contain("Ada Lovelace");
+        cut.Find("button[aria-label='Remove Ada Lovelace']").Click();
+
+        picked.Should().BeNull();
+    }
+
+    [Fact]
+    public void UserPicker_can_clear_the_selection_from_the_list()
     {
         IReadOnlyList<OrganizationMemberDto> members = [new("u1", "Ada", "ada@x.com", "#111", OrgRole.Member)];
         string? picked = "u1";
@@ -98,9 +115,22 @@ public class DropdownTests : BunitContext
             .Add(p => p.Value, "u1")
             .Add(p => p.ValueChanged, v => picked = v));
 
-        cut.Find("button").Click();
+        cut.FindAll("button").First(b => b.TextContent.Contains("Change")).Click();
         cut.FindAll("button").First(b => b.TextContent.Contains("Unassigned")).Click();
 
         picked.Should().BeNull();
+    }
+
+    [Fact]
+    public void UserPicker_hides_the_remove_control_when_a_value_is_required()
+    {
+        IReadOnlyList<OrganizationMemberDto> members = [new("u1", "Ada Lovelace", "ada@x.com", "#111", OrgRole.Member)];
+
+        var cut = Render<UserPicker>(ps => ps
+            .Add(p => p.Members, members)
+            .Add(p => p.Value, "u1")
+            .Add(p => p.AllowUnassigned, false));
+
+        cut.FindAll("button[aria-label='Remove Ada Lovelace']").Should().BeEmpty();
     }
 }

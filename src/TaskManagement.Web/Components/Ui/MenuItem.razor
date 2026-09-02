@@ -5,12 +5,13 @@
         @onclick="OnClick">
     @if (Icon is not null)
     {
-        <span aria-hidden="true">@Icon</span>
+        <Icon Name="@Icon" Class="h-4 w-4" />
     }
     @ChildContent
 </button>
 
 @code {
+    /// <summary>Name of an <see cref="Ui.Icon"/> to show before the label.</summary>
     [Parameter] public string? Icon { get; set; }
     [Parameter] public bool Destructive { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }

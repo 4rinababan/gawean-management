@@ -5,15 +5,15 @@
 <nav class="space-y-6 text-sm">
     <div>
         @* Back out of the workspace to the personal dashboard. *@
-        <a href="/" class="@NavClass(false)">📊 Dashboard</a>
+        <a href="/" class="@NavClass(false)"><Icon Name="chart-bar" Class="h-4 w-4" /> Dashboard</a>
     </div>
 
     <div>
-        <a href="@($"/{Slug}")" class="@NavClass(IsExact($"/{Slug}"))">🏠 Overview</a>
-        <a href="@($"/{Slug}/members")" class="@NavClass(Contains("/members"))">👥 Members</a>
+        <a href="@($"/{Slug}")" class="@NavClass(IsExact($"/{Slug}"))"><Icon Name="home" Class="h-4 w-4" /> Overview</a>
+        <a href="@($"/{Slug}/members")" class="@NavClass(Contains("/members"))"><Icon Name="users" Class="h-4 w-4" /> Members</a>
         @if (CanManageWorkspace)
         {
-            <a href="@($"/{Slug}/settings")" class="@NavClass(Contains("/settings"))">⚙️ Settings</a>
+            <a href="@($"/{Slug}/settings")" class="@NavClass(Contains("/settings"))"><Icon Name="cog" Class="h-4 w-4" /> Settings</a>
         }
     </div>
 
@@ -34,7 +34,7 @@
             }
             @if (CanManageProjects)
             {
-                <a href="@($"/{Slug}/projects/new")" class="@NavClass(false)">➕ New project</a>
+                <a href="@($"/{Slug}/projects/new")" class="@NavClass(false)"><Icon Name="plus" Class="h-4 w-4" /> New project</a>
             }
         }
     </div>
