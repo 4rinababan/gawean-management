@@ -70,12 +70,15 @@ public sealed class OrganizationService(
             .Select(m =>
             {
                 directory.TryGetValue(m.UserId, out var u);
+                var displayName = u?.DisplayName ?? "Unknown user";
+                var email = u?.Email ?? "";
                 return new OrganizationMemberDto(
                     m.UserId,
-                    u?.DisplayName ?? "Unknown user",
-                    u?.Email ?? "",
+                    displayName,
+                    email,
                     u?.AvatarColor ?? "#64748b",
-                    m.Role);
+                    m.Role,
+                    Mentions.HandleFor(displayName, email));
             })
             .OrderByDescending(m => m.Role)
             .ThenBy(m => m.DisplayName)

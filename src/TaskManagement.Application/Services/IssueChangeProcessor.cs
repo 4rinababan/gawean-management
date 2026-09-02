@@ -100,7 +100,7 @@ public sealed class IssueChangeProcessor(
         IAppDbContext db, Dictionary<string, Notification> queued, string body, string reference, Issue issue,
         string actorUserId, string actorName, string url, CancellationToken ct)
     {
-        var tokens = ExtractMentions(body);
+        var tokens = Mentions.Extract(body);
         if (tokens.Count == 0)
             return;
 
@@ -114,7 +114,7 @@ public sealed class IssueChangeProcessor(
 
         foreach (var token in tokens)
         {
-            var match = members.Values.FirstOrDefault(u => MatchesMention(u, token));
+            var match = members.Values.FirstOrDefault(u => Mentions.Matches(u, token));
             if (match is null || match.Id == actorUserId)
                 continue;
 
@@ -124,28 +124,4 @@ public sealed class IssueChangeProcessor(
         }
     }
 
-    /// <summary>A mention matches a member's handle, the local part of their email, or their display name with separators removed.</summary>
-    internal static bool MatchesMention(UserSummary user, string token)
-    {
-        static string Normalize(string? value) => new((value ?? "")
-            .Where(char.IsLetterOrDigit)
-            .Select(char.ToLowerInvariant)
-            .ToArray());
-
-        var normalized = Normalize(token);
-        if (normalized.Length == 0)
-            return false;
-
-        var emailLocalPart = user.Email.Split('@')[0];
-        return Normalize(user.UserName) == normalized
-            || Normalize(emailLocalPart) == normalized
-            || Normalize(user.DisplayName) == normalized;
-    }
-
-    private static IReadOnlyList<string> ExtractMentions(string body)
-        => System.Text.RegularExpressions.Regex
-            .Matches(body, @"(?<![\w@])@([A-Za-z0-9_.-]{2,64})")
-            .Select(m => m.Groups[1].Value)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
 }

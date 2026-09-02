@@ -34,11 +34,17 @@
     <script src="@Assets["lib/sortablejs/Sortable.min.js"]"></script>
     <script src="@Assets["lib/quill/quill.js"]"></script>
     <script src="@Assets["lib/signalr/signalr.min.js"]"></script>
+    <script src="@Assets["lib/qrcode/qrcode.min.js"]"></script>
     <script src="@Assets["js/app.js"]"></script>
+    <script src="@Assets["js/qr.js"]"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script>
-        // Enhanced navigation replaces the <html> attributes with the server's, dropping the theme class.
-        Blazor.addEventListener('enhancedload', () => window.tm.restoreTheme());
+        Blazor.addEventListener('enhancedload', () => {
+            // Enhanced navigation replaces the <html> attributes with the server's, dropping the theme class.
+            window.tm.restoreTheme();
+            // …and swaps the body, so anything rendered imperatively has to be rebuilt.
+            window.tmRenderQrCode?.();
+        });
     </script>
     <script src="@Assets["Components/Account/Shared/PasskeySubmit.razor.js"]" type="module"></script>
 </body>

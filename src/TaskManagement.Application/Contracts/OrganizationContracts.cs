@@ -17,7 +17,7 @@ public sealed class InviteMemberRequest
 
 public sealed record OrganizationDto(Guid Id, string Name, string Slug, OrgRole CurrentUserRole, int MemberCount);
 
-public sealed record OrganizationMemberDto(string UserId, string DisplayName, string Email, string AvatarColor, OrgRole Role);
+public sealed record OrganizationMemberDto(string UserId, string DisplayName, string Email, string AvatarColor, OrgRole Role, string MentionHandle);
 
 public sealed record InvitationDto(Guid Id, string Email, OrgRole Role, DateTimeOffset ExpiresAt, string InvitedByDisplayName, string AcceptUrl);
 

@@ -147,8 +147,8 @@ public class UiComponentTests : BunitContext
     {
         IReadOnlyList<OrganizationMemberDto> members =
         [
-            new("u1", "Alice Smith", "alice@x.com", "#1", OrgRole.Member),
-            new("u2", "Bob Jones", "bob@x.com", "#2", OrgRole.Member),
+            new("u1", "Alice Smith", "alice@x.com", "#1", OrgRole.Member, "u1handle"),
+            new("u2", "Bob Jones", "bob@x.com", "#2", OrgRole.Member, "u2handle"),
         ];
 
         var cut = Render<UserPicker>(ps => ps.Add(p => p.Members, members));

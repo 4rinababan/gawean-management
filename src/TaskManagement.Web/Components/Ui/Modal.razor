@@ -2,10 +2,12 @@
 
 @if (Open)
 {
+    @* Closes three ways: the ✕, a click on the backdrop, and Escape. tabindex="-1" + autofocus put
+       keyboard focus inside the dialog so the key handler receives Escape without an extra click. *@
     <div class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 sm:p-8"
-         @onclick="OnBackdrop">
+         @onclick="OnBackdrop" @onkeydown="OnKeyDown" tabindex="-1" autofocus>
         <div class="@($"mt-8 w-full {WidthClass} rounded-2xl bg-white shadow-xl dark:bg-slate-900")"
-             @onclick:stopPropagation="true" role="dialog" aria-modal="true">
+             @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-label="@Title">
             <div class="flex items-start justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
                 <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">@Title</h2>
                 <button type="button" class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
@@ -40,4 +42,6 @@
     private Task Close() => OpenChanged.InvokeAsync(false);
 
     private Task OnBackdrop() => CloseOnBackdrop ? Close() : Task.CompletedTask;
+
+    private Task OnKeyDown(KeyboardEventArgs e) => e.Key == "Escape" ? Close() : Task.CompletedTask;
 }

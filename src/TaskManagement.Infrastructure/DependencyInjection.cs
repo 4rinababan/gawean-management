@@ -1,3 +1,4 @@
+using System.Threading.Channels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -41,7 +42,14 @@ public static class DependencyInjection
         services.AddOptions<FileStorageOptions>().Bind(configuration.GetSection(FileStorageOptions.SectionName));
 
         services.AddSingleton<IHtmlSanitizer, Content.RichTextSanitizer>();
-        services.AddScoped<IEmailSender, SmtpEmailSender>();
+
+        // Email is queued and dispatched in the background; SMTP round trips must not sit inside a
+        // request the user is waiting on. Bounded + DropOldest so a mail outage can't grow unbounded.
+        services.AddSingleton(_ => Channel.CreateBounded<OutgoingEmail>(
+            new BoundedChannelOptions(1000) { FullMode = BoundedChannelFullMode.DropOldest }));
+        services.AddSingleton<SmtpEmailSender>();
+        services.AddSingleton<IEmailSender, QueuedEmailSender>();
+        services.AddHostedService<EmailDispatcher>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         services.AddSingleton<IClock, SystemClock>();
 

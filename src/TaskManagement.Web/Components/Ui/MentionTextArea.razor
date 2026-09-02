@@ -1,0 +1,91 @@
+@namespace TaskManagement.Web.Components.Ui
+
+@* Typing "@" opens a member picker. Handles come from the server (Mentions.HandleFor), which is the
+   same definition the notifier matches on — so a picked mention always resolves to a real person
+   instead of the author guessing at someone's handle. *@
+<div class="relative flex-1">
+    <textarea class="tm-textarea" rows="@Rows" placeholder="@Placeholder"
+              value="@Value" @oninput="OnInputAsync" @onkeydown="OnKeyDownAsync"></textarea>
+
+    @if (_suggestions.Count > 0)
+    {
+        <div class="absolute bottom-full z-30 mb-1 max-h-56 w-64 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+            @foreach (var (member, index) in _suggestions.Select((m, i) => (m, i)))
+            {
+                <button type="button" @key="member.UserId"
+                        class="@($"flex w-full items-center gap-2 px-3 py-2 text-left text-sm {(index == _highlighted ? "bg-slate-100 dark:bg-slate-700" : "hover:bg-slate-100 dark:hover:bg-slate-700")}")"
+                        @onclick="() => Insert(member)">
+                    <Avatar Name="@member.DisplayName" Color="@member.AvatarColor" Size="xs" />
+                    <span class="min-w-0 flex-1 truncate">@member.DisplayName</span>
+                    <span class="shrink-0 font-mono text-xs text-slate-400">@@@member.MentionHandle</span>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public IReadOnlyList<OrganizationMemberDto> Members { get; set; } = [];
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public int Rows { get; set; } = 2;
+
+    private List<OrganizationMemberDto> _suggestions = [];
+    private int _highlighted;
+
+    /// <summary>The partial "@token" being typed at the end of the text, if any.</summary>
+    private static string? PendingToken(string? text)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(text ?? "", @"(?<![\w@])@([A-Za-z0-9_.-]*)$");
+        return match.Success ? match.Groups[1].Value : null;
+    }
+
+    private async Task OnInputAsync(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString();
+        await ValueChanged.InvokeAsync(Value);
+
+        var token = PendingToken(Value);
+        _suggestions = token is null
+            ? []
+            : Members
+                .Where(m => token.Length == 0 || m.MentionHandle.Contains(token, StringComparison.OrdinalIgnoreCase)
+                                              || m.DisplayName.Contains(token, StringComparison.OrdinalIgnoreCase))
+                .Take(6)
+                .ToList();
+        _highlighted = 0;
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (_suggestions.Count == 0) return;
+
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                _highlighted = (_highlighted + 1) % _suggestions.Count;
+                break;
+            case "ArrowUp":
+                _highlighted = (_highlighted - 1 + _suggestions.Count) % _suggestions.Count;
+                break;
+            case "Enter" or "Tab":
+                await Insert(_suggestions[_highlighted]);
+                break;
+            case "Escape":
+                _suggestions = [];
+                break;
+        }
+    }
+
+    private async Task Insert(OrganizationMemberDto member)
+    {
+        var token = PendingToken(Value) ?? "";
+        // Replace the partial token (and its "@") with the canonical handle.
+        var text = (Value ?? "")[..^(token.Length + 1)] + $"@{member.MentionHandle} ";
+
+        _suggestions = [];
+        Value = text;
+        await ValueChanged.InvokeAsync(text);
+    }
+}

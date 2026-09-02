@@ -39,7 +39,7 @@ else
                     <input class="tm-input" @bind="_edit.Title" @bind:event="oninput" disabled="@(!CanEdit)" />
                 </Field>
                 <Field Label="Description" Class="mt-4">
-                    <RichTextEditor Value="_edit.Description" ValueChanged="OnDescriptionChanged"
+                    <RichTextEditor Value="@_edit.Description" ValueChanged="OnDescriptionChanged"
                                     ReadOnly="@(!CanEdit)" OnUploadImage="UploadInlineImageAsync" />
                 </Field>
                 @if (CanEdit)
@@ -68,8 +68,11 @@ else
                 }
                 @if (CanComment)
                 {
-                    <div class="mt-2 flex gap-2">
-                        <textarea class="tm-textarea" rows="2" placeholder="Leave a comment… use @@name to mention" @bind="_newComment"></textarea>
+                    <div class="mt-2 flex items-start gap-2">
+                        @* The literal "@" has to come from an expression: a component attribute
+                           cannot mix markup escapes with text. *@
+                        <MentionTextArea @bind-Value="_newComment" Members="_members"
+                                         Placeholder="@("Leave a comment… type @ to mention someone")" />
                         <Button Loading="_commenting" OnClick="AddCommentAsync">Send</Button>
                     </div>
                 }
@@ -91,9 +94,13 @@ else
                 </ul>
                 @if (CanEdit)
                 {
-                    <div class="mt-3">
-                        <InputFile OnChange="UploadAsync" class="text-sm" />
-                    </div>
+                    @* A label wrapping a hidden input is the accessible way to restyle a file picker —
+                       clicking the label opens the dialog, and it stays keyboard reachable. *@
+                    <label class="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                        <Icon Name="paper-clip" Class="h-4 w-4" />
+                        @(_uploading ? "Uploading…" : "Add attachment")
+                        <InputFile OnChange="UploadAsync" class="sr-only" disabled="@_uploading" />
+                    </label>
                 }
             </Card>
         </div>
@@ -112,7 +119,7 @@ else
                     </div>
                     <div>
                         <p class="tm-label">Assignee</p>
-                        <UserPicker Members="_members" Value="_issue.AssigneeUserId" ValueChanged="ChangeAssignee" />
+                        <UserPicker Members="_members" Value="@_issue.AssigneeUserId" ValueChanged="ChangeAssignee" />
                     </div>
                     <div>
                         <p class="tm-label">Priority</p>
@@ -215,6 +222,7 @@ else
     private bool _commenting;
     private bool _saving;
     private bool _descriptionDirty;
+    private bool _uploading;
     private bool _confirmDelete;
 
     private RenderFragment CommentsHeader => @<span class="text-sm font-semibold">Comments (@(_issue?.Comments.Count ?? 0))</span>;
@@ -366,6 +374,7 @@ else
     private async Task UploadAsync(InputFileChangeEventArgs e)
     {
         var file = e.File;
+        _uploading = true;
         try
         {
             await using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
@@ -373,10 +382,11 @@ else
             await stream.CopyToAsync(ms);
             ms.Position = 0;
             await Attachments.UploadAsync(IssueId, ms, file.Name, file.ContentType, ms.Length);
-            Toasts.Success("Attachment uploaded.");
+            Toasts.Success($"Attached {file.Name}.");
             await LoadAsync();
         }
         catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _uploading = false; }
     }
 
     private async Task DeleteAsync()

@@ -42,8 +42,8 @@ public class DropdownTests : BunitContext
     {
         IReadOnlyList<OrganizationMemberDto> members =
         [
-            new("u1", "Ada Lovelace", "ada@x.com", "#111", OrgRole.Member),
-            new("u2", "Bob Jones", "bob@x.com", "#222", OrgRole.Member),
+            new("u1", "Ada Lovelace", "ada@x.com", "#111", OrgRole.Member, "u1handle"),
+            new("u2", "Bob Jones", "bob@x.com", "#222", OrgRole.Member, "u2handle"),
         ];
         string? picked = "unset";
 
@@ -62,8 +62,8 @@ public class DropdownTests : BunitContext
     {
         IReadOnlyList<OrganizationMemberDto> members =
         [
-            new("u1", "Ada Lovelace", "ada@x.com", "#111", OrgRole.Member),
-            new("u2", "Bob Jones", "bob@x.com", "#222", OrgRole.Member),
+            new("u1", "Ada Lovelace", "ada@x.com", "#111", OrgRole.Member, "u1handle"),
+            new("u2", "Bob Jones", "bob@x.com", "#222", OrgRole.Member, "u2handle"),
         ];
         string? bound = null;
 
@@ -90,7 +90,7 @@ public class DropdownTests : BunitContext
     [Fact]
     public void UserPicker_shows_the_selection_as_a_chip_that_can_be_removed()
     {
-        IReadOnlyList<OrganizationMemberDto> members = [new("u1", "Ada Lovelace", "ada@x.com", "#111", OrgRole.Member)];
+        IReadOnlyList<OrganizationMemberDto> members = [new("u1", "Ada Lovelace", "ada@x.com", "#111", OrgRole.Member, "u1handle")];
         string? picked = "u1";
 
         var cut = Render<UserPicker>(ps => ps
@@ -107,7 +107,7 @@ public class DropdownTests : BunitContext
     [Fact]
     public void UserPicker_can_clear_the_selection_from_the_list()
     {
-        IReadOnlyList<OrganizationMemberDto> members = [new("u1", "Ada", "ada@x.com", "#111", OrgRole.Member)];
+        IReadOnlyList<OrganizationMemberDto> members = [new("u1", "Ada", "ada@x.com", "#111", OrgRole.Member, "u1handle")];
         string? picked = "u1";
 
         var cut = Render<UserPicker>(ps => ps
@@ -124,7 +124,7 @@ public class DropdownTests : BunitContext
     [Fact]
     public void UserPicker_hides_the_remove_control_when_a_value_is_required()
     {
-        IReadOnlyList<OrganizationMemberDto> members = [new("u1", "Ada Lovelace", "ada@x.com", "#111", OrgRole.Member)];
+        IReadOnlyList<OrganizationMemberDto> members = [new("u1", "Ada Lovelace", "ada@x.com", "#111", OrgRole.Member, "u1handle")];
 
         var cut = Render<UserPicker>(ps => ps
             .Add(p => p.Members, members)
