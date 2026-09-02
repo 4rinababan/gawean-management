@@ -2,10 +2,10 @@
 @rendermode InteractiveServer
 @layout OrgLayout
 @attribute [Authorize]
+@inherits OrgPageBase
 @inject OrganizationService Organizations
 @inject InvitationService Invitations
 @inject ToastService Toasts
-@inject ITenantContext Tenant
 
 <PageTitle>Members</PageTitle>
 
@@ -115,21 +115,15 @@ else
 </Modal>
 
 @code {
-    [Parameter] public string Slug { get; set; } = "";
-
     private IReadOnlyList<OrganizationMemberDto>? _members;
     private IReadOnlyList<InvitationDto>? _pending;
     private readonly InviteMemberRequest _invite = new();
     private bool _showInvite;
     private bool _busy;
 
-    private bool CanManage => Tenant.IsResolved && RolePermissions.Allows(Tenant.Role, OrgPermission.ManageMembers);
+    private bool CanManage => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.ManageMembers);
 
-    protected override async Task OnParametersSetAsync()
-    {
-        if (Tenant.IsResolved)
-            await ReloadAsync();
-    }
+    protected override Task OnTenantReadyAsync() => ReloadAsync();
 
     private async Task ReloadAsync()
     {

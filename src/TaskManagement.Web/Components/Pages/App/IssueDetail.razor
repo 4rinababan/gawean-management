@@ -2,14 +2,13 @@
 @rendermode InteractiveServer
 @layout OrgLayout
 @attribute [Authorize]
+@inherits OrgPageBase
 @inject IssueService Issues
 @inject AttachmentService Attachments
 @inject OrganizationService Organizations
 @inject SprintService SprintSvc
 @inject ProjectService Projects
-@inject NavigationManager Nav
 @inject ToastService Toasts
-@inject ITenantContext Tenant
 
 <PageTitle>@(_issue?.Reference ?? "Issue")</PageTitle>
 
@@ -168,7 +167,6 @@ else
 }
 
 @code {
-    [Parameter] public string Slug { get; set; } = "";
     [Parameter] public Guid IssueId { get; set; }
 
     private IssueDetailDto? _issue;
@@ -183,13 +181,12 @@ else
     private RenderFragment ActivityHeader => @<span class="text-sm font-semibold">Activity</span>;
     private RenderFragment AttachmentsHeader => @<span class="text-sm font-semibold">Attachments</span>;
 
-    private bool CanEdit => Tenant.IsResolved && RolePermissions.Allows(Tenant.Role, OrgPermission.EditIssue);
-    private bool CanComment => Tenant.IsResolved && RolePermissions.Allows(Tenant.Role, OrgPermission.CommentOnIssue);
-    private bool CanDelete => Tenant.IsResolved && RolePermissions.Allows(Tenant.Role, OrgPermission.DeleteIssue);
+    private bool CanEdit => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.EditIssue);
+    private bool CanComment => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.CommentOnIssue);
+    private bool CanDelete => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.DeleteIssue);
 
-    protected override async Task OnParametersSetAsync()
+    protected override async Task OnTenantReadyAsync()
     {
-        if (!Tenant.IsResolved) return;
         await LoadAsync();
         _members = await Organizations.GetMembersAsync();
         if (_issue is not null)

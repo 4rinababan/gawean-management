@@ -2,8 +2,8 @@
 @rendermode InteractiveServer
 @layout OrgLayout
 @attribute [Authorize]
+@inherits OrgPageBase
 @inject ProjectService Projects
-@inject ITenantContext Tenant
 
 <PageTitle>Overview</PageTitle>
 
@@ -56,15 +56,10 @@ else
 }
 
 @code {
-    [Parameter] public string Slug { get; set; } = "";
-
     private IReadOnlyList<ProjectDto>? _projects;
 
-    private bool CanManage => Tenant.IsResolved && RolePermissions.Allows(Tenant.Role, OrgPermission.ManageProjects);
+    private bool CanManage => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.ManageProjects);
 
-    protected override async Task OnParametersSetAsync()
-    {
-        if (Tenant.IsResolved)
-            _projects = await Projects.GetAllAsync();
-    }
+    protected override async Task OnTenantReadyAsync()
+        => _projects = await Projects.GetAllAsync();
 }

@@ -2,10 +2,10 @@
 @rendermode InteractiveServer
 @layout OrgLayout
 @attribute [Authorize]
+@inherits OrgPageBase
 @inject ProjectService Projects
 @inject SprintService SprintSvc
 @inject ToastService Toasts
-@inject ITenantContext Tenant
 
 <PageTitle>@Key sprints</PageTitle>
 
@@ -123,7 +123,6 @@ else
 }
 
 @code {
-    [Parameter] public string Slug { get; set; } = "";
     [Parameter] public string Key { get; set; } = "";
 
     private ProjectDto? _project;
@@ -134,7 +133,7 @@ else
     private SprintDto? _startSprint;
     private StartSprintRequest _startForm = new();
 
-    private bool CanManage => Tenant.IsResolved && RolePermissions.Allows(Tenant.Role, OrgPermission.ManageSprints);
+    private bool CanManage => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.ManageSprints);
 
     private static Badge.BadgeColor StateColor(SprintState s) => s switch
     {
@@ -143,9 +142,8 @@ else
         _ => Badge.BadgeColor.Blue,
     };
 
-    protected override async Task OnParametersSetAsync()
+    protected override async Task OnTenantReadyAsync()
     {
-        if (!Tenant.IsResolved) return;
         _project = await Projects.GetByKeyAsync(Key);
         await ReloadAsync();
     }

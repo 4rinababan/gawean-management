@@ -2,11 +2,10 @@
 @rendermode InteractiveServer
 @layout OrgLayout
 @attribute [Authorize]
+@inherits OrgPageBase
 @inject ProjectService Projects
 @inject OrganizationService Organizations
-@inject NavigationManager Nav
 @inject ToastService Toasts
-@inject ITenantContext Tenant
 
 <PageTitle>New project</PageTitle>
 
@@ -39,18 +38,18 @@
 </Card>
 
 @code {
-    [Parameter] public string Slug { get; set; } = "";
-
     private readonly CreateProjectRequest _form = new();
     private IReadOnlyList<OrganizationMemberDto> _members = [];
     private bool _busy;
 
-    protected override async Task OnParametersSetAsync()
+    protected override async Task OnTenantReadyAsync()
     {
-        if (Tenant.IsResolved && !RolePermissions.Allows(Tenant.Role, OrgPermission.ManageProjects))
+        if (!RolePermissions.Allows(Tenant.Role, OrgPermission.ManageProjects))
+        {
             Nav.NavigateTo($"/{Slug}");
-        else if (Tenant.IsResolved)
-            _members = await Organizations.GetMembersAsync();
+            return;
+        }
+        _members = await Organizations.GetMembersAsync();
     }
 
     private async Task SubmitAsync()

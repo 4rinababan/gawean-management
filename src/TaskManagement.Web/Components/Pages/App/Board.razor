@@ -2,12 +2,11 @@
 @rendermode InteractiveServer
 @layout OrgLayout
 @attribute [Authorize]
+@inherits OrgPageBase
 @implements IAsyncDisposable
 @inject ProjectService Projects
 @inject BoardService BoardSvc
-@inject NavigationManager Nav
 @inject ToastService Toasts
-@inject ITenantContext Tenant
 @inject IJSRuntime JS
 
 <PageTitle>@Key board</PageTitle>
@@ -60,7 +59,6 @@ else
 }
 
 @code {
-    [Parameter] public string Slug { get; set; } = "";
     [Parameter] public string Key { get; set; } = "";
 
     private ProjectDto? _project;
@@ -71,11 +69,10 @@ else
     private DotNetObjectReference<Board>? _ref;
     private bool _interopReady;
 
-    private bool CanCreate => Tenant.IsResolved && RolePermissions.Allows(Tenant.Role, OrgPermission.CreateIssue);
+    private bool CanCreate => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.CreateIssue);
 
-    protected override async Task OnParametersSetAsync()
+    protected override async Task OnTenantReadyAsync()
     {
-        if (!Tenant.IsResolved) return;
         _project = await Projects.GetByKeyAsync(Key);
         await ReloadBoardAsync();
     }
