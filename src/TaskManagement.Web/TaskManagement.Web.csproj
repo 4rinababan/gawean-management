@@ -31,6 +31,11 @@
   <ItemGroup>
     <None Include="package.json;Styles\app.css" />
     <Content Remove="Styles\**\*.css" />
+    <!-- Attachment uploads land under the content root in development; they are runtime data,
+         not sources, so they must not be packaged or trigger a dotnet watch restart. -->
+    <Content Remove="uploads\**" />
+    <None Remove="uploads\**" />
+    <Watch Remove="uploads\**" />
   </ItemGroup>
 
 </Project>

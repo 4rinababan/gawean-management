@@ -16,6 +16,9 @@ src/TaskManagement.Web/Data/app.db
 *.db-shm
 *.db-wal
 
+# Uploaded attachments (runtime data; a mounted volume in production)
+src/TaskManagement.Web/uploads/
+
 # Node / Tailwind
 node_modules/
 src/TaskManagement.Web/wwwroot/css/app.generated.css
