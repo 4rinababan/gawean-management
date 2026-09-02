@@ -7,6 +7,8 @@
 
     @if (_open)
     {
+        @* Click-anywhere-to-close. Keep every ancestor free of transform/filter/backdrop-filter,
+           or this overlay stops being viewport-sized and only the trigger closes the menu. *@
         <div class="fixed inset-0 z-20" @onclick="() => _open = false"></div>
         <div class="@($"absolute right-0 z-30 mt-1 {Width} max-w-[calc(100vw-1rem)] origin-top-right overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800")"
              @onclick="() => _open = false">

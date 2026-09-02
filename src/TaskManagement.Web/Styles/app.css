@@ -47,6 +47,28 @@
   h3:focus {
     outline: none;
   }
+
+  /* Tailwind's preflight resets buttons to cursor:default — anything clickable should say so. */
+  button:not(:disabled),
+  summary,
+  label[for],
+  select:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [type="checkbox"]:not(:disabled),
+  [type="radio"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  input[type="file"]::file-selector-button {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  input:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
 }
 
 @layer components {

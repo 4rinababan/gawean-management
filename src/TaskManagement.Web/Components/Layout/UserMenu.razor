@@ -2,7 +2,6 @@
 @rendermode InteractiveServer
 @inject AuthenticationStateProvider AuthState
 @inject IUserDirectory Users
-@inject IJSRuntime JS
 
 <DropdownMenu>
     <Trigger>
@@ -15,7 +14,6 @@
             <p class="truncate text-sm font-medium text-slate-900 dark:text-slate-100">@_name</p>
             <p class="truncate text-xs text-slate-400">@_email</p>
         </div>
-        <MenuItem Icon="🎨" OnClick="ToggleTheme">Toggle theme</MenuItem>
         <a href="Account/Manage" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700">⚙️ Account settings</a>
         <form action="Account/Logout" method="post" class="border-t border-slate-100 dark:border-slate-700">
             <AntiforgeryToken />
@@ -49,5 +47,4 @@
         _color = TaskManagement.Infrastructure.Identity.ApplicationUser.PickAvatarColor(_name);
     }
 
-    private async Task ToggleTheme() => await JS.InvokeVoidAsync("tm.toggleTheme");
 }

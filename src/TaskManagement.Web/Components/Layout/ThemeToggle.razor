@@ -1,0 +1,36 @@
+@namespace TaskManagement.Web.Components.Layout
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+
+@* The icon shows what a click will switch *to*, and the label/title says it in words. *@
+<button type="button"
+        class="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+        title="@Label" aria-label="@Label" @onclick="ToggleAsync">
+    @if (_ready)
+    {
+        @(_isDark ? "☀️" : "🌙")
+    }
+    else
+    {
+        <span class="inline-block h-4 w-4"></span>
+    }
+</button>
+
+@code {
+    private bool _isDark;
+    private bool _ready;
+
+    private string Label => _isDark ? "Switch to light theme" : "Switch to dark theme";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        // The theme is applied by an inline script before first paint, so read it from the DOM.
+        _isDark = await JS.InvokeAsync<bool>("tm.isDark");
+        _ready = true;
+        StateHasChanged();
+    }
+
+    private async Task ToggleAsync() => _isDark = await JS.InvokeAsync<bool>("tm.toggleTheme");
+}
