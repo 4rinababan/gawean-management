@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using TaskManagement.Application.Abstractions;
 using TaskManagement.Domain;
 using TaskManagement.Domain.Issues;
@@ -68,7 +69,7 @@ public sealed class IssueChangeProcessor(
 
                 case nameof(Comment):
                     QueueStakeholders(NotificationType.IssueCommented, $"{actorName} commented on {reference}");
-                    await QueueMentionsAsync(queued, change.NewValue ?? "", reference, issue, actorUserId, actorName, issueUrl, ct);
+                    await QueueMentionsAsync(db, queued, change.NewValue ?? "", reference, issue, actorUserId, actorName, issueUrl, ct);
                     break;
             }
         }
@@ -96,24 +97,55 @@ public sealed class IssueChangeProcessor(
     }
 
     private async Task QueueMentionsAsync(
-        Dictionary<string, Notification> queued, string body, string reference, Issue issue,
+        IAppDbContext db, Dictionary<string, Notification> queued, string body, string reference, Issue issue,
         string actorUserId, string actorName, string url, CancellationToken ct)
     {
-        foreach (var username in ExtractMentions(body))
+        var tokens = ExtractMentions(body);
+        if (tokens.Count == 0)
+            return;
+
+        // Identity's UserName is the email address, so "@ari" would never match it. Resolve mentions
+        // against this organization's members by display name, email local part or username instead.
+        var memberIds = await db.OrganizationMembers
+            .Where(m => m.OrganizationId == issue.OrganizationId)
+            .Select(m => m.UserId)
+            .ToListAsync(ct);
+        var members = await users.GetManyAsync(memberIds, ct);
+
+        foreach (var token in tokens)
         {
-            var user = await users.FindByUsernameAsync(username, ct);
-            if (user is null || user.Id == actorUserId)
+            var match = members.Values.FirstOrDefault(u => MatchesMention(u, token));
+            if (match is null || match.Id == actorUserId)
                 continue;
 
-            queued[user.Id] = new Notification(
-                issue.OrganizationId, user.Id, NotificationType.IssueMentioned,
+            queued[match.Id] = new Notification(
+                issue.OrganizationId, match.Id, NotificationType.IssueMentioned,
                 $"{actorName} mentioned you in {reference}", issue.Id, url);
         }
     }
 
-    private static IEnumerable<string> ExtractMentions(string body)
+    /// <summary>A mention matches a member's handle, the local part of their email, or their display name with separators removed.</summary>
+    internal static bool MatchesMention(UserSummary user, string token)
+    {
+        static string Normalize(string? value) => new((value ?? "")
+            .Where(char.IsLetterOrDigit)
+            .Select(char.ToLowerInvariant)
+            .ToArray());
+
+        var normalized = Normalize(token);
+        if (normalized.Length == 0)
+            return false;
+
+        var emailLocalPart = user.Email.Split('@')[0];
+        return Normalize(user.UserName) == normalized
+            || Normalize(emailLocalPart) == normalized
+            || Normalize(user.DisplayName) == normalized;
+    }
+
+    private static IReadOnlyList<string> ExtractMentions(string body)
         => System.Text.RegularExpressions.Regex
-            .Matches(body, @"(?<![\w])@([A-Za-z0-9_.-]{2,64})")
-            .Select(m => m.Groups[1].Value.ToLowerInvariant())
-            .Distinct();
+            .Matches(body, @"(?<![\w@])@([A-Za-z0-9_.-]{2,64})")
+            .Select(m => m.Groups[1].Value)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 }

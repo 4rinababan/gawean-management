@@ -58,6 +58,36 @@ public class DropdownTests : BunitContext
     }
 
     [Fact]
+    public void UserPicker_shows_the_picked_person_once_the_parent_pushes_the_new_value_back()
+    {
+        IReadOnlyList<OrganizationMemberDto> members =
+        [
+            new("u1", "Ada Lovelace", "ada@x.com", "#111", OrgRole.Member),
+            new("u2", "Bob Jones", "bob@x.com", "#222", OrgRole.Member),
+        ];
+        string? bound = null;
+
+        var cut = Render<UserPicker>(ps => ps
+            .Add(p => p.Members, members)
+            .Add(p => p.Value, bound)
+            .Add(p => p.ValueChanged, v => bound = v));
+
+        cut.Markup.Should().Contain("Select a person");
+
+        cut.Find("button").Click();
+        cut.FindAll("button").First(b => b.TextContent.Contains("Bob Jones")).Click();
+
+        // The parent persists then re-renders with the stored value — the label must follow.
+        cut.Render(ps => ps
+            .Add(p => p.Members, members)
+            .Add(p => p.Value, bound)
+            .Add(p => p.ValueChanged, (string? v) => bound = v));
+
+        cut.Markup.Should().Contain("Bob Jones");
+        cut.Markup.Should().NotContain("Select a person");
+    }
+
+    [Fact]
     public void UserPicker_can_clear_the_selection()
     {
         IReadOnlyList<OrganizationMemberDto> members = [new("u1", "Ada", "ada@x.com", "#111", OrgRole.Member)];

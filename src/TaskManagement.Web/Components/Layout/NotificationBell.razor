@@ -5,7 +5,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<DropdownMenu>
+<DropdownMenu Width="w-80">
     <Trigger>
         <button type="button" class="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800" aria-label="Notifications">
             🔔
@@ -23,7 +23,7 @@
                 <button class="text-xs text-brand-600 hover:underline" @onclick="MarkAllRead">Mark all read</button>
             }
         </div>
-        <div class="max-h-80 w-80 overflow-auto">
+        <div class="max-h-80 overflow-y-auto">
             @if (_items.Count == 0)
             {
                 <p class="px-3 py-6 text-center text-sm text-slate-400">You're all caught up.</p>

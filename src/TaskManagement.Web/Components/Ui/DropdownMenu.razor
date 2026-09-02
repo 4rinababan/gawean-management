@@ -8,7 +8,7 @@
     @if (_open)
     {
         <div class="fixed inset-0 z-20" @onclick="() => _open = false"></div>
-        <div class="absolute right-0 z-30 mt-1 w-48 origin-top-right rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
+        <div class="@($"absolute right-0 z-30 mt-1 {Width} max-w-[calc(100vw-1rem)] origin-top-right overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800")"
              @onclick="() => _open = false">
             @ChildContent
         </div>
@@ -18,6 +18,9 @@
 @code {
     [Parameter, EditorRequired] public RenderFragment? Trigger { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Tailwind width class for the panel. Widen it for richer menus (e.g. the notification list).</summary>
+    [Parameter] public string Width { get; set; } = "w-48";
 
     private bool _open;
 }
