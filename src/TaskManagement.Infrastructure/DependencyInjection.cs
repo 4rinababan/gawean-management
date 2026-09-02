@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddOptions<EmailOptions>().Bind(configuration.GetSection(EmailOptions.SectionName));
         services.AddOptions<FileStorageOptions>().Bind(configuration.GetSection(FileStorageOptions.SectionName));
 
+        services.AddSingleton<IHtmlSanitizer, Content.RichTextSanitizer>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         services.AddSingleton<IClock, SystemClock>();

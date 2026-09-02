@@ -39,7 +39,8 @@ else
                     <input class="tm-input" @bind="_edit.Title" @bind:event="oninput" disabled="@(!CanEdit)" />
                 </Field>
                 <Field Label="Description" Class="mt-4">
-                    <textarea class="tm-textarea" rows="6" @bind="_edit.Description" @bind:event="oninput" disabled="@(!CanEdit)"></textarea>
+                    <RichTextEditor Value="_edit.Description" ValueChanged="OnDescriptionChanged"
+                                    ReadOnly="@(!CanEdit)" OnUploadImage="UploadInlineImageAsync" />
                 </Field>
                 @if (CanEdit)
                 {
@@ -213,6 +214,7 @@ else
     private string _newComment = "";
     private bool _commenting;
     private bool _saving;
+    private bool _descriptionDirty;
     private bool _confirmDelete;
 
     private RenderFragment CommentsHeader => @<span class="text-sm font-semibold">Comments (@(_issue?.Comments.Count ?? 0))</span>;
@@ -248,18 +250,54 @@ else
             SprintId = _issue.SprintId,
             DueDate = _issue.DueDate,
         };
+        _descriptionDirty = false;
         StateHasChanged();
     }
 
-    /// <summary>True when the Summary/Description editors differ from what's stored.</summary>
-    private bool IsDirty => _issue is not null
-        && (_edit.Title != _issue.Title || (_edit.Description ?? "") != (_issue.Description ?? ""));
+    /// <summary>
+    /// True when the Summary/Description editors differ from what's stored. Description dirtiness is
+    /// tracked by a flag rather than string comparison: the editor's HTML and the sanitised HTML that
+    /// comes back from the server are equivalent but not byte-identical, which would read as always-dirty.
+    /// </summary>
+    private bool IsDirty => _issue is not null && (_edit.Title != _issue.Title || _descriptionDirty);
 
     private void ResetEdits()
     {
         if (_issue is null) return;
         _edit.Title = _issue.Title;
         _edit.Description = _issue.Description;
+        _descriptionDirty = false;
+    }
+
+    private void OnDescriptionChanged(string? html)
+    {
+        _edit.Description = html;
+        _descriptionDirty = true;
+        StateHasChanged(); // keeps the dirty indicator and Save button in step
+    }
+
+    /// <summary>
+    /// Images dropped into the description are stored as ordinary issue attachments, so they inherit the
+    /// same tenant + permission checks as any other file and need no separate upload endpoint.
+    /// </summary>
+    private async Task<string?> UploadInlineImageAsync(IBrowserFile file)
+    {
+        try
+        {
+            await using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            buffer.Position = 0;
+
+            var saved = await Attachments.UploadAsync(IssueId, buffer, file.Name, file.ContentType, buffer.Length);
+            await LoadAsync();
+            return $"/{Slug}/attachments/{saved.Id}";
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error(ex.Message);
+            return null;
+        }
     }
 
     private async Task SaveDetailsAsync()

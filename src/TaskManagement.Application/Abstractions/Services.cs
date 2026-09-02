@@ -70,3 +70,12 @@ public interface IClock
 {
     DateTimeOffset UtcNow { get; }
 }
+
+/// <summary>
+/// Strips anything unsafe from user-authored HTML (issue descriptions). Applied on write, so what is
+/// stored is already safe to render — nothing else in the system may persist raw HTML from a user.
+/// </summary>
+public interface IHtmlSanitizer
+{
+    string? Sanitize(string? html);
+}

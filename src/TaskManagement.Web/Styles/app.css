@@ -102,6 +102,68 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   Quill (rich-text description). Quill's snow theme ships its own light-mode
+   chrome, so this only re-skins the borders and adds the dark palette.
+   --------------------------------------------------------------------------- */
+.tm-richtext .ql-toolbar.ql-snow,
+.tm-richtext .ql-container.ql-snow {
+  border-color: var(--color-slate-300);
+}
+
+.tm-richtext .ql-toolbar.ql-snow {
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+}
+
+.tm-richtext .ql-container.ql-snow {
+  border-bottom-left-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+  min-height: 10rem;
+  font-size: 0.875rem;
+}
+
+.tm-richtext--readonly .ql-container.ql-snow {
+  border-radius: 0.5rem;
+  background: var(--color-slate-50);
+}
+
+.tm-richtext .ql-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+}
+
+.dark .tm-richtext .ql-toolbar.ql-snow,
+.dark .tm-richtext .ql-container.ql-snow {
+  border-color: var(--color-slate-700);
+  background-color: var(--color-slate-800);
+  color: var(--color-slate-100);
+}
+
+.dark .tm-richtext .ql-editor.ql-blank::before {
+  color: var(--color-slate-500);
+}
+
+/* Toolbar glyphs are strokes/fills on inline SVG, so they need explicit dark colours. */
+.dark .tm-richtext .ql-snow .ql-stroke {
+  stroke: var(--color-slate-300);
+}
+
+.dark .tm-richtext .ql-snow .ql-fill {
+  fill: var(--color-slate-300);
+}
+
+.dark .tm-richtext .ql-snow .ql-picker-label,
+.dark .tm-richtext .ql-snow .ql-picker-item {
+  color: var(--color-slate-200);
+}
+
+.dark .tm-richtext .ql-snow .ql-picker-options {
+  background-color: var(--color-slate-800);
+  border-color: var(--color-slate-700);
+}
+
 @utility w-13 {
   width: 3.25rem;
 }

@@ -13,7 +13,8 @@ public sealed class IssueService(
     IAppDbContextFactory dbf,
     IUserDirectory users,
     PermissionGuard guard,
-    IssueChangeProcessor changeProcessor)
+    IssueChangeProcessor changeProcessor,
+    IHtmlSanitizer sanitizer)
 {
     private const int ActivityLimit = 30;
 
@@ -96,7 +97,7 @@ public sealed class IssueService(
 
         var issue = project.CreateIssue(request.Title, request.Type, actor);
         issue.DequeueChanges();
-        if (request.Description is not null) issue.Describe(request.Description, actor);
+        if (request.Description is not null) issue.Describe(sanitizer.Sanitize(request.Description), actor);
         if (request.Priority != IssuePriority.Medium) issue.ChangePriority(request.Priority, actor);
         if (request.StoryPoints is not null) issue.Estimate(request.StoryPoints, actor);
         if (request.DueDate is not null) issue.SetDueDate(request.DueDate, actor);
@@ -120,7 +121,7 @@ public sealed class IssueService(
         var project = await RequireProjectAsync(db, issue.ProjectId, ct);
 
         issue.Rename(request.Title, actor);
-        issue.Describe(request.Description, actor);
+        issue.Describe(sanitizer.Sanitize(request.Description), actor);
         issue.ChangeType(request.Type, actor);
         issue.ChangePriority(request.Priority, actor);
         issue.Estimate(request.StoryPoints, actor);

@@ -106,6 +106,41 @@ public class IssueDetailFlowTests : IDisposable
     }
 
     [Fact]
+    public async Task A_description_is_sanitised_before_it_is_stored()
+    {
+        var issues = _fx.Build<IssueService>();
+
+        var issueId = await issues.CreateAsync(new CreateIssueRequest
+        {
+            ProjectId = _projectId,
+            Title = "T",
+            Type = IssueType.Task,
+            Description = "<p><strong>keep</strong></p><script>alert('xss')</script><img src=x onerror=alert(1)>",
+        });
+
+        var stored = (await issues.GetAsync(issueId)).Description!;
+        stored.Should().Contain("keep").And.Contain("strong");
+        stored.Should().NotContain("<script").And.NotContain("onerror");
+    }
+
+    [Fact]
+    public async Task Updating_a_description_sanitises_it_too()
+    {
+        var issues = _fx.Build<IssueService>();
+        var issueId = await NewIssueAsync();
+
+        await issues.UpdateAsync(issueId, new UpdateIssueRequest
+        {
+            Title = "T",
+            Description = "<p onclick=\"steal()\">text</p>",
+            Type = IssueType.Task,
+            Priority = IssuePriority.Medium,
+        });
+
+        (await issues.GetAsync(issueId)).Description.Should().NotContain("onclick");
+    }
+
+    [Fact]
     public async Task An_email_address_in_a_comment_is_not_treated_as_a_mention()
     {
         var issues = _fx.Build<IssueService>();

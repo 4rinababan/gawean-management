@@ -30,6 +30,8 @@
 
     <!-- Infrastructure -->
     <PackageVersion Include="MailKit" Version="4.17.0" />
+    <!-- Ganss.Xss: issue descriptions are user-authored HTML and must be sanitised before storage. -->
+    <PackageVersion Include="HtmlSanitizer" Version="9.2.1039" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="$(AspNetVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(AspNetVersion)" />
 

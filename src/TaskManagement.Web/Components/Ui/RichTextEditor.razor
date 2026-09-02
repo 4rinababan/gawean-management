@@ -1,0 +1,91 @@
+@namespace TaskManagement.Web.Components.Ui
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* Quill editor. The HTML it produces is sanitised server-side before it is stored — see
+   RichTextSanitizer — so nothing here is trusted just because it came from our own toolbar. *@
+<div class="tm-richtext @(ReadOnly ? "tm-richtext--readonly" : "")">
+    <div @ref="_host"></div>
+</div>
+
+@if (!ReadOnly)
+{
+    @* Hidden on purpose: Quill's toolbar image button triggers this through JS interop, so uploads
+       reuse the authenticated attachment pipeline instead of a bespoke JS upload endpoint. *@
+    <div class="hidden">
+        <InputFile @ref="_fileInput" OnChange="OnImageSelectedAsync" accept="image/*" />
+    </div>
+}
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+
+    /// <summary>Uploads a pasted/inserted image and returns the URL to embed, or null to cancel.</summary>
+    [Parameter] public Func<IBrowserFile, Task<string?>>? OnUploadImage { get; set; }
+
+    private ElementReference _host;
+    private InputFile? _fileInput;
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<RichTextEditor>? _ref;
+    private string? _lastPushed;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _ref = DotNetObjectReference.Create(this);
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/richtext.js");
+            await _module.InvokeVoidAsync("create", _host, _ref, Value, ReadOnly);
+            _lastPushed = Value;
+            return;
+        }
+
+        // Only push down changes that came from outside (e.g. a reload after save), never echo our own.
+        if (_module is not null && Value != _lastPushed)
+        {
+            _lastPushed = Value;
+            await _module.InvokeVoidAsync("setContent", _host, Value);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnContentChangedAsync(string? html)
+    {
+        _lastPushed = html;
+        Value = html;
+        await ValueChanged.InvokeAsync(html);
+    }
+
+    [JSInvokable]
+    public async Task PickImageAsync()
+    {
+        if (_fileInput?.Element is { } element)
+            await JS.InvokeVoidAsync("tm.click", element);
+    }
+
+    private async Task OnImageSelectedAsync(InputFileChangeEventArgs e)
+    {
+        if (OnUploadImage is null || _module is null)
+            return;
+
+        var url = await OnUploadImage(e.File);
+        if (!string.IsNullOrEmpty(url))
+            await _module.InvokeVoidAsync("insertImage", _host, url);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_module is not null)
+            {
+                await _module.InvokeVoidAsync("dispose", _host);
+                await _module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException) { }
+        _ref?.Dispose();
+    }
+}

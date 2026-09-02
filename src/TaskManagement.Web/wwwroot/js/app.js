@@ -27,5 +27,6 @@
             apply(preferred());
         },
         focus(el) { el?.focus(); },
+        click(el) { el?.click(); },
     };
 })();

@@ -18,6 +18,7 @@ public sealed class ServiceFixture : IDisposable
     public INotificationRealtime Realtime { get; } = Substitute.For<INotificationRealtime>();
     public IAppUrls Urls { get; } = Substitute.For<IAppUrls>();
     public IFileStorage Storage { get; } = Substitute.For<IFileStorage>();
+    public IHtmlSanitizer Sanitizer { get; } = new TaskManagement.Infrastructure.Content.RichTextSanitizer();
     public IClock Clock { get; } = new FakeClock();
 
     public ServiceFixture()
@@ -43,7 +44,7 @@ public sealed class ServiceFixture : IDisposable
 
         object svc = typeof(T).Name switch
         {
-            nameof(IssueService) => new IssueService(Factory, Users, guard, changeProcessor),
+            nameof(IssueService) => new IssueService(Factory, Users, guard, changeProcessor, Sanitizer),
             nameof(BoardService) => new BoardService(Factory, Users, guard, changeProcessor),
             nameof(SprintService) => new SprintService(Factory, guard, Realtime),
             nameof(ProjectService) => new ProjectService(Factory, Users, guard),
