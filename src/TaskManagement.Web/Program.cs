@@ -107,7 +107,8 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 var app = builder.Build();
 
 // --- Migrate on startup (guarded) ----------------------------------------------
-if (app.Configuration.GetValue("RunMigrationsOnStartup", app.Environment.IsDevelopment()))
+// EF.IsDesignTime is true when `dotnet ef` builds this host to read the model — don't touch the DB then.
+if (!EF.IsDesignTime && app.Configuration.GetValue("RunMigrationsOnStartup", app.Environment.IsDevelopment()))
 {
     await using var scope = app.Services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
