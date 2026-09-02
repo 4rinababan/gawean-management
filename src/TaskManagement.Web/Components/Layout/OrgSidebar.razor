@@ -4,6 +4,11 @@
 
 <nav class="space-y-6 text-sm">
     <div>
+        @* Back out of the workspace to the personal dashboard. *@
+        <a href="/" class="@NavClass(false)">📊 Dashboard</a>
+    </div>
+
+    <div>
         <a href="@($"/{Slug}")" class="@NavClass(IsExact($"/{Slug}"))">🏠 Overview</a>
         <a href="@($"/{Slug}/members")" class="@NavClass(Contains("/members"))">👥 Members</a>
         @if (CanManageWorkspace)

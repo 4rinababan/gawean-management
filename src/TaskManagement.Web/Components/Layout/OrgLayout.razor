@@ -24,10 +24,12 @@ else
     @* Sidebar is a slide-over below lg, a fixed column from lg up. *@
     <OrgMobileNav Slug="@Slug" />
 
-    <div class="lg:grid lg:grid-cols-[220px_1fr] lg:gap-6">
-        <div class="hidden lg:block">
-            <OrgSidebar Slug="@Slug" />
-        </div>
+    <div class="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-8">
+        <aside class="hidden lg:block">
+            <div class="sticky top-20">
+                <OrgSidebar Slug="@Slug" />
+            </div>
+        </aside>
         <div class="min-w-0">@Body</div>
     </div>
 }

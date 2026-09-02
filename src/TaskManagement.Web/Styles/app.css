@@ -67,6 +67,11 @@
   .tm-label {
     @apply mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300;
   }
+
+  /* App shell width: wide enough to use a large monitor, capped so line lengths stay readable. */
+  .tm-shell {
+    @apply mx-auto w-full max-w-[100rem] px-4 sm:px-6 lg:px-8;
+  }
 }
 
 /* ---------------------------------------------------------------------------
