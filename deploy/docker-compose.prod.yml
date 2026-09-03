@@ -1,9 +1,10 @@
 # Production stack for a single VPS: app + PostgreSQL + Caddy (automatic HTTPS).
-# Deploy: copy this file, Caddyfile and .env to /opt/taskmanagement on the VPS, then
-#   docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d
+# The CD workflow runs on a self-hosted GitHub Actions runner installed on this same VPS: it
+# builds the image locally and runs this file directly, so there is no registry to pull from.
+# Manual use: docker build -t gawean-management:latest .. && docker compose -f docker-compose.prod.yml up -d
 services:
   web:
-    image: ${IMAGE:-ghcr.io/4rinababan/gawean-management:latest}
+    image: ${IMAGE:-gawean-management:latest}
     restart: unless-stopped
     depends_on:
       db:

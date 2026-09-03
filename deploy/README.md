@@ -1,18 +1,17 @@
 # Deploying to a VPS
 
 Three containers on one host: the app, PostgreSQL, and Caddy (which terminates TLS and
-reverse-proxies to the app). A push to `main` runs the test suite, builds the image, pushes it
-to GHCR, ships this folder to the VPS, and restarts the stack — failing the deploy if the app
-does not come up healthy.
+reverse-proxies to the app). The GitHub Actions runner is installed directly on the VPS as a
+**self-hosted runner**, so a push to `main` runs the test suite, then builds the Docker image
+and restarts the stack on that same host — no image registry, no SSH step, no deploy secrets.
 
-This repo deploys `ghcr.io/4rinababan/gawean-management` to **gawean.web.id** on the VPS at
-**103.89.7.185** (SSH user `cashflow`).
+This repo deploys **gawean.web.id** on the VPS at **103.89.7.185**.
 
 ## What lives where
 
 | File | Source of truth | Notes |
 | --- | --- | --- |
-| `docker-compose.prod.yml` | the repo | copied to the VPS on **every** deploy — do not edit on the VPS, the change would be overwritten |
+| `docker-compose.prod.yml` | the repo | checked out fresh by the runner on **every** deploy — do not edit on the VPS, the change would be overwritten |
 | `Caddyfile` | the repo | same |
 | `.env` | **the VPS only** | holds the secrets; never committed, never overwritten by a deploy |
 
@@ -30,22 +29,23 @@ Check it has propagated: `nslookup gawean.web.id` should answer `103.89.7.185`.
 
 ## 2. One-time VPS setup
 
+Docker, and a GitHub Actions self-hosted runner registered to this repo, both need to already be
+on the host (Settings → Actions → Runners → New self-hosted runner walks through installing and
+starting the runner service). The runner's user must be in the `docker` group:
+
 ```bash
-ssh cashflow@103.89.7.185
+sudo usermod -aG docker $USER      # then restart the runner service for this to take effect
+```
 
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER      # then log out and back in for this to take effect
+Create the deploy directory and `.env` there (the deploy never touches this file):
 
+```bash
 sudo mkdir -p /opt/taskmanagement
 sudo chown $USER /opt/taskmanagement
 cd /opt/taskmanagement
-```
 
-Create `.env` there (the deploy never touches this file):
-
-```bash
 cat > .env <<'EOF'
-IMAGE=ghcr.io/4rinababan/gawean-management:latest
+IMAGE=gawean-management:latest
 DOMAIN=gawean.web.id
 TLS_EMAIL=admin@gawean.web.id
 
@@ -77,34 +77,18 @@ Ports 80 and 443 must be reachable from the internet. If `ufw` is active:
 sudo ufw allow 80,443/tcp
 ```
 
-## 3. GitHub repository secrets
+## 3. Deploy
 
-Settings → Secrets and variables → Actions → New repository secret:
+Push to `main`, or run the **Build, Test & Deploy** workflow manually from the Actions tab. It
+runs, in order:
 
-| Secret | Value |
-| --- | --- |
-| `VPS_HOST` | `103.89.7.185` |
-| `VPS_USER` | `cashflow` |
-| `VPS_SSH_KEY` | the **private** key whose public half is in `~/.ssh/authorized_keys` on the VPS |
-
-`VPS_SSH_KEY` is the entire file including the `-----BEGIN…` and `-----END…` lines. If the
-provider gave you a `.pem` download, paste its contents verbatim.
-
-`GITHUB_TOKEN` is provided automatically — it pushes the image and authenticates the VPS-side
-`docker pull` during the same job. No PAT is needed for the automated deploy. For a **manual**
-`docker compose pull` on the VPS later, either make the GHCR package public (github.com/users/
-4rinababan/packages → gawean-management → Package settings → Change visibility) or log in there
-once with a PAT that has `read:packages`.
-
-## 4. Deploy
-
-Push to `main`, or run the **CD** workflow manually from the Actions tab. It runs, in order:
-
-1. **test** — the same build and full test suite a pull request runs;
-2. **build-image** — multi-stage Docker build, pushed as `:sha-<commit>` and `:latest`;
-3. **deploy** — copies `docker-compose.prod.yml` and `Caddyfile` to the VPS, pulls the exact
-   commit's image, restarts the stack, then waits for the container's healthcheck. If the app
-   is not healthy within ~200s the job fails and prints the last 80 log lines.
+1. **test** — the same build and full test suite a pull request runs (on a GitHub-hosted
+   runner);
+2. **build-deploy** — on the self-hosted runner: builds the image (`docker build`), runs
+   `docker compose -f deploy/docker-compose.prod.yml --env-file /opt/taskmanagement/.env up -d`,
+   then waits for the container's healthcheck. If the app is not healthy within ~200s the job
+   fails and prints the last 80 log lines. `docker image prune -f` clears the superseded image
+   afterwards.
 
 The schema is created and migrated on startup (`RunMigrationsOnStartup=true`), so there is no
 separate migration step. Data Protection keys live in the `keys` volume, so a redeploy does not
@@ -112,7 +96,7 @@ sign anyone out.
 
 First run takes a few minutes: Caddy has to obtain the certificate from Let's Encrypt.
 
-## 5. Verify
+## 4. Verify
 
 ```bash
 curl -fsS https://gawean.web.id/health     # => Healthy
@@ -120,7 +104,7 @@ curl -fsS https://gawean.web.id/health     # => Healthy
 
 Then open https://gawean.web.id, register the first account, and create a workspace.
 
-## 6. Operations
+## 5. Operations
 
 ```bash
 cd /opt/taskmanagement
@@ -146,8 +130,11 @@ failures for the same name, so fix DNS before retrying.
 database connection or a bad value in `.env`. The job prints the web logs; `docker compose logs
 web` on the VPS shows the same.
 
-**`docker: permission denied`.** The SSH user is not in the `docker` group yet, or the session
-predates `usermod`. Log out and back in.
+**`docker: permission denied`.** The runner's user is not in the `docker` group yet, or its
+session predates `usermod`. Restart the self-hosted runner service.
+
+**Runner offline / job stuck queued.** Check the runner's status under Settings → Actions →
+Runners, and that its service is running on the VPS (`sudo systemctl status actions.runner.*`).
 
 **Email not sending.** Port 465 is blocked on some networks. Switch `.env` to
 `SMTP_PORT=587` with `SMTP_SECURITY=StartTls` and restart. Email failures are logged and never
