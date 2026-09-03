@@ -1,4 +1,4 @@
-name: Build, Test & Deploy
+name: Build & Deploy
 
 on:
   push:
@@ -14,13 +14,11 @@ env:
   ENV_FILE: /opt/taskmanagement/.env
 
 jobs:
-  # Nothing reaches production without passing the same suite a pull request has to pass.
-  # Reused rather than copied so the two can never drift apart.
-  test:
-    uses: ./.github/workflows/ci.yml
-
+  # No GitHub-hosted test gate here: the account's GitHub-hosted runner minutes are blocked by a
+  # billing issue, which was leaving this job stuck as "not started" and blocking every deploy.
+  # Runs straight on the self-hosted runner instead. Re-add a `needs: test` job (see git history
+  # for the previous version) once GitHub-hosted jobs work again.
   build-deploy:
-    needs: test
     runs-on: self-hosted
 
     steps:
