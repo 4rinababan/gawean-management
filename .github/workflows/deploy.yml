@@ -1,19 +1,60 @@
-name: Build, Test & Deploy Cashflow
+name: Build, Test & Deploy
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: gawean-management:latest
+  ENV_FILE: /opt/taskmanagement/.env
 
 jobs:
-  build-test-deploy:
+  # Nothing reaches production without passing the same suite a pull request has to pass.
+  # Reused rather than copied so the two can never drift apart.
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  build-deploy:
+    needs: test
     runs-on: self-hosted
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build & Deploy with Docker Compose
-        run: docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+      - name: Build Docker image
+        run: docker build -t ${{ env.IMAGE_NAME }} .
+
+      - name: Deploy with Docker Compose
+        working-directory: deploy
+        run: |
+          export IMAGE=${{ env.IMAGE_NAME }}
+          docker compose -f docker-compose.prod.yml --env-file ${{ env.ENV_FILE }} up -d
+
+      # A deploy that leaves the site down must fail loudly rather than report success.
+      # The image declares a HEALTHCHECK, so wait for the container to actually report healthy.
+      - name: Health check
+        run: |
+          set -euo pipefail
+          cid=$(docker compose -f deploy/docker-compose.prod.yml --env-file ${{ env.ENV_FILE }} ps -q web)
+          status=starting
+          for _ in $(seq 1 40); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo starting)
+            [ "$status" = healthy ] && break
+            sleep 5
+          done
+
+          if [ "$status" != healthy ]; then
+            echo "::error::Deploy failed — web is '$status' after 200s. Recent logs:"
+            docker compose -f deploy/docker-compose.prod.yml --env-file ${{ env.ENV_FILE }} logs --tail=80 web
+            exit 1
+          fi
+          echo "Healthy."
 
       - name: Clean up old images
         run: docker image prune -f
