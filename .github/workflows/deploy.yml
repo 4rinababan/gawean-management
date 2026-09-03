@@ -12,17 +12,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Restore dependencies
-        run: dotnet restore src/TaskManagement.Web/TaskManagement.Web.csproj
+      - name: Build & Deploy with Docker Compose
+        run: docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
 
-      - name: Build
-        run: dotnet build src/TaskManagement.Web/TaskManagement.Web.csproj --configuration Release --no-restore
-
-      - name: Test
-        run: dotnet test --configuration Release --verbosity normal
-
-      - name: Publish
-        run: dotnet publish src/TaskManagement.Web/TaskManagement.Web.csproj -c Release -o /var/www/cashflow/publish
-
-      - name: Restart service
-        run: sudo systemctl restart cashflow.service
+      - name: Clean up old images
+        run: docker image prune -f
