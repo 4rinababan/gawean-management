@@ -32,7 +32,7 @@ ENV ASPNETCORE_HTTP_PORTS=8080 \
     ASPNETCORE_ENVIRONMENT=Production \
     DataProtection__KeyPath=/keys \
     FileStorage__RootPath=/app/uploads
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* && \
+RUN apt-get update && apt-get install -y --no-install-recommends curl adduser && rm -rf /var/lib/apt/lists/* && \
     mkdir -p /keys /app/uploads && \
     adduser --disabled-password --gecos "" appuser && \
     chown -R appuser /keys /app/uploads
