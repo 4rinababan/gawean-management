@@ -9,3 +9,6 @@ deploy/
 *.md
 .github/
 src/TaskManagement.Web/wwwroot/css/app.generated.css
+# Locally uploaded attachments — the container mounts a volume at /app/uploads instead, and
+# baking a developer's files into the production image would both bloat it and leak them.
+src/TaskManagement.Web/uploads

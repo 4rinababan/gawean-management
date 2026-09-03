@@ -5,6 +5,9 @@ on:
     branches-ignore: [main]
   pull_request:
     branches: [main]
+  # Called by the CD workflow so that a deploy runs the exact same build and tests as a PR,
+  # rather than a second copy of them that can drift.
+  workflow_call:
 
 jobs:
   build-and-test:

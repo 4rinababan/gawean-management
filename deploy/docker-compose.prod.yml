@@ -20,7 +20,7 @@ services:
       Smtp__User: ${SMTP_USER:-}
       Smtp__Password: ${SMTP_PASSWORD:-}
       Smtp__FromAddress: ${SMTP_FROM:-no-reply@example.com}
-      Smtp__FromName: ${SMTP_FROM_NAME:-Ga-We-An - TMMIN}
+      Smtp__FromName: ${SMTP_FROM_NAME:-GaWeAn}
       Ai__Endpoint: ${AI_ENDPOINT:-}
       Ai__ApiKey: ${AI_API_KEY:-}
       Ai__Model: ${AI_MODEL:-}
