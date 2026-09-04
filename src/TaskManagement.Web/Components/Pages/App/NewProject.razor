@@ -6,6 +6,7 @@
 @inject ProjectService Projects
 @inject OrganizationService Organizations
 @inject ToastService Toasts
+@inject TourState Tour
 
 <PageTitle>New project</PageTitle>
 
@@ -61,6 +62,7 @@
         {
             _form.Key = _form.Key.ToUpperInvariant();
             var created = await Projects.CreateAsync(_form);
+            Tour.MarkDone(TourStep.CreateProject);
             Toasts.Success($"Project {created.Key} created.");
             Nav.NavigateTo($"/{Slug}/projects/{created.Key}/board");
         }

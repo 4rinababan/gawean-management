@@ -5,6 +5,7 @@
 @inject ToastService Toasts
 @inject IAiAssistant Ai
 @inject IDocumentTextExtractor Extractor
+@inject TourState Tour
 
 <Modal Open="Open" OpenChanged="OpenChanged" Title="Create issue">
     @if (Ai.IsEnabled)
@@ -220,6 +221,7 @@
             }
 
             Toasts.Success("Issue created.");
+            Tour.MarkDone(TourStep.AddIssue);
             _form = new CreateIssueRequest { ProjectId = ProjectId, SprintId = SprintId };
             RemoveFile();
             _aiPrompt = null;

@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject AuthenticationStateProvider AuthState
 @inject IUserDirectory Users
+@inject TourState Tour
 
 <DropdownMenu>
     <Trigger>
@@ -15,6 +16,7 @@
             <p class="truncate text-xs text-slate-400">@_email</p>
         </div>
         <a href="Account/Manage" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"><Icon Name="cog" Class="h-4 w-4" /> Account settings</a>
+        <button type="button" @onclick="RestartTour" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"><Icon Name="rocket" Class="h-4 w-4" /> Take a tour</button>
         <form action="Account/Logout" method="post" class="border-t border-slate-100 dark:border-slate-700">
             <AntiforgeryToken />
             <input type="hidden" name="ReturnUrl" value="" />
@@ -47,4 +49,5 @@
         _color = TaskManagement.Infrastructure.Identity.ApplicationUser.PickAvatarColor(_name);
     }
 
+    private void RestartTour() => Tour.Restart();
 }

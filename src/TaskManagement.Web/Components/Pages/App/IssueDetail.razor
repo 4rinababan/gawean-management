@@ -14,6 +14,7 @@
 @inject ToastService Toasts
 @inject ICurrentUser CurrentUser
 @inject IAiAssistant Ai
+@inject TourState Tour
 
 <PageTitle>@(_issue?.Reference ?? "Issue")</PageTitle>
 
@@ -82,7 +83,7 @@ else
 
             @if (Ai.IsEnabled)
             {
-                <Card Header="@AskAiHeader">
+                <Card Header="@AskAiHeader" data-tour="ask-ai-section">
                     <div class="flex gap-2">
                         <input class="tm-input" @bind="_aiQuestion" @bind:event="oninput" disabled="@_asking"
                                placeholder="e.g. jelaskan detail requirement export mapping-nya" />
@@ -535,6 +536,7 @@ else
         try
         {
             _aiAnswerHtml = await Issues.AskAiAsync(IssueId, _aiQuestion);
+            if (_aiAnswerHtml is not null) Tour.MarkDone(TourStep.UseAi);
         }
         catch (Exception ex) { Toasts.Error(ex.Message); }
         finally { _asking = false; }
