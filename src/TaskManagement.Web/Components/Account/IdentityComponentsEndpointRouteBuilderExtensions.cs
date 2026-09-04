@@ -114,7 +114,8 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
         manageGroup.MapPost("/DownloadPersonalData", async (
             HttpContext context,
             [FromServices] UserManager<ApplicationUser> userManager,
-            [FromServices] AuthenticationStateProvider authenticationStateProvider) =>
+            [FromServices] AuthenticationStateProvider authenticationStateProvider,
+            [FromServices] TaskManagement.Application.Services.OrganizationService organizations) =>
         {
             var user = await userManager.GetUserAsync(context.User);
             if (user is null)
@@ -126,7 +127,7 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
             downloadLogger.LogInformation("User with ID '{UserId}' asked for their personal data.", userId);
 
             // Only include personal data for download
-            var personalData = new Dictionary<string, string>();
+            var personalData = new Dictionary<string, object>();
             var personalDataProps = typeof(ApplicationUser).GetProperties().Where(
                 prop => Attribute.IsDefined(prop, typeof(PersonalDataAttribute)));
             foreach (var p in personalDataProps)
@@ -141,6 +142,12 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
             }
 
             personalData.Add("Authenticator Key", (await userManager.GetAuthenticatorKeyAsync(user))!);
+
+            var workspaceData = await organizations.GetMyDataSummaryAsync(userId, context.RequestAborted);
+            personalData.Add("Workspaces", workspaceData.Workspaces);
+            personalData.Add("Issues Reported", workspaceData.ReportedIssues);
+            personalData.Add("Comments Authored", workspaceData.CommentCount);
+
             var fileBytes = JsonSerializer.SerializeToUtf8Bytes(personalData);
 
             context.Response.Headers.TryAdd("Content-Disposition", "attachment; filename=PersonalData.json");

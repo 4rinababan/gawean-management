@@ -10,6 +10,7 @@
 @inject ILogger<Login> Logger
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
+@inject TaskManagement.Application.Services.OrganizationService Organizations
 
 <PageTitle>Log in</PageTitle>
 
@@ -118,6 +119,9 @@
         if (result.Succeeded)
         {
             Logger.LogInformation("User logged in.");
+            var loggedInUser = await UserManager.FindByEmailAsync(Input.Email);
+            if (loggedInUser is not null)
+                await Organizations.LogLoginAsync(await UserManager.GetUserIdAsync(loggedInUser));
             RedirectManager.RedirectTo(ReturnUrl);
         }
         else if (result.RequiresTwoFactor)

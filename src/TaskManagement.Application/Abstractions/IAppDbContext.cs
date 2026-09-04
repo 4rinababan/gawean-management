@@ -26,6 +26,7 @@ public interface IAppDbContext : IAsyncDisposable
     DbSet<Organization> Organizations { get; }
     DbSet<OrganizationMember> OrganizationMembers { get; }
     DbSet<Invitation> Invitations { get; }
+    DbSet<OrganizationAuditLog> OrganizationAuditLogs { get; }
     DbSet<Project> Projects { get; }
     DbSet<Issue> Issues { get; }
     DbSet<Comment> Comments { get; }

@@ -8,24 +8,26 @@
 
 <PageTitle>Personal Data</PageTitle>
 
-<StatusMessage />
-<h3>Personal Data</h3>
+<h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-slate-100">Personal data</h2>
 
-<div class="row">
-    <div class="col-md-6">
-        <p>Your account contains personal data that you have given us. This page allows you to download or delete that data.</p>
-        <p>
-            <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
-        </p>
+<StatusMessage />
+
+<Card>
+    <p class="text-sm text-slate-600 dark:text-slate-300">
+        Your account contains personal data that you have given us — your profile, the workspaces you belong to,
+        the issues you've reported, and the comments you've written. This page lets you download or delete that data.
+    </p>
+    <div class="mt-4 flex flex-wrap items-center gap-3">
         <form action="Account/Manage/DownloadPersonalData" method="post">
             <AntiforgeryToken />
-            <button class="btn btn-primary" type="submit">Download</button>
+            <button type="submit" class="rounded-lg bg-brand-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700">Download your data</button>
         </form>
-        <p>
-            <a href="Account/Manage/DeletePersonalData" class="btn btn-danger">Delete</a>
-        </p>
+        <a href="Account/Manage/DeletePersonalData" class="rounded-lg bg-rose-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-rose-700">Delete</a>
     </div>
-</div>
+    <p class="mt-3 text-xs text-rose-600 dark:text-rose-400">
+        Deleting this data will permanently remove your account, and this cannot be recovered.
+    </p>
+</Card>
 
 @code {
     [CascadingParameter]

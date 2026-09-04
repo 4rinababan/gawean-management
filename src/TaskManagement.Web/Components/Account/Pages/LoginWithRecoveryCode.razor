@@ -8,6 +8,7 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<LoginWithRecoveryCode> Logger
+@inject TaskManagement.Application.Services.OrganizationService Organizations
 
 <PageTitle>Recovery code verification</PageTitle>
 
@@ -64,6 +65,7 @@
         if (result.Succeeded)
         {
             Logger.LogInformation("User with ID '{UserId}' logged in with a recovery code.", userId);
+            await Organizations.LogLoginAsync(userId);
             RedirectManager.RedirectTo(ReturnUrl);
         }
         else if (result.IsLockedOut)

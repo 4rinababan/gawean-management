@@ -58,11 +58,19 @@ public sealed class InvitationService(
         if (existing is not null && org.Members.Any(m => m.UserId == existing.Id))
             throw new ConflictException("That person is already a member of this workspace.");
 
-        var invitation = org.InviteMember(address, request.Role, currentUser.RequireUserId(), Validity);
+        // Checked here too, not just at AcceptAsync: the inviter should know immediately rather than
+        // the invitee hitting a wall later. AcceptAsync still enforces it — invites can be sent
+        // concurrently, so this check alone can't guarantee the seat is still free by the time it's redeemed.
+        if (org.Members.Count >= WorkspaceLimits.MaxMembersPerWorkspace)
+            throw new ConflictException($"This workspace has reached its limit of {WorkspaceLimits.MaxMembersPerWorkspace} members.");
+
+        var actor = currentUser.RequireUserId();
+        var invitation = org.InviteMember(address, request.Role, actor, Validity);
         // Entity ids are client-generated, so EF's "key is already set" heuristic would mark a child
         // discovered through a navigation collection as Modified (an UPDATE of a row that doesn't
         // exist yet). Adding it to its DbSet forces the Added state.
         db.Invitations.Add(invitation);
+        db.OrganizationAuditLogs.Add(new OrganizationAuditLog(org.Id, actor, "MemberInvited", $"Invited {address} as {request.Role}"));
         await db.SaveChangesAsync(ct);
 
         var link = urls.InvitationAccept(invitation.Token);
@@ -112,8 +120,12 @@ public sealed class InvitationService(
         if (!invitation.IsRedeemable(clock.UtcNow))
             throw new ConflictException("This invitation has expired or has already been used.");
 
+        if (org.Members.Count >= WorkspaceLimits.MaxMembersPerWorkspace)
+            throw new ConflictException($"This workspace has reached its limit of {WorkspaceLimits.MaxMembersPerWorkspace} members.");
+
         db.OrganizationMembers.Add(org.AddMember(userId, invitation.Role));
         invitation.Accept(userId, clock.UtcNow);
+        db.OrganizationAuditLogs.Add(new OrganizationAuditLog(org.Id, userId, "MemberJoined", "Joined the workspace"));
 
         db.Notifications.Add(new Notification(
             org.Id, userId, NotificationType.AddedToOrganization,

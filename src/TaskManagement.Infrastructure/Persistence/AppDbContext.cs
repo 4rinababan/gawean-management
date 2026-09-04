@@ -25,6 +25,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<OrganizationMember> OrganizationMembers => Set<OrganizationMember>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
+    public DbSet<OrganizationAuditLog> OrganizationAuditLogs => Set<OrganizationAuditLog>();
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<Issue> Issues => Set<Issue>();
     public DbSet<Comment> Comments => Set<Comment>();
@@ -60,6 +61,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
         builder.Entity<Organization>().HasQueryFilter(o => o.Id == TenantId);
         builder.Entity<OrganizationMember>().HasQueryFilter(e => e.OrganizationId == TenantId);
         builder.Entity<Invitation>().HasQueryFilter(e => e.OrganizationId == TenantId);
+        builder.Entity<OrganizationAuditLog>().HasQueryFilter(e => e.OrganizationId == TenantId);
         builder.Entity<Project>().HasQueryFilter(e => e.OrganizationId == TenantId);
         builder.Entity<Issue>().HasQueryFilter(e => e.OrganizationId == TenantId);
         builder.Entity<Comment>().HasQueryFilter(e => e.OrganizationId == TenantId);

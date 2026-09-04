@@ -15,6 +15,7 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<ExternalLogin> Logger
+@inject TaskManagement.Application.Services.OrganizationService Organizations
 
 <PageTitle>Register</PageTitle>
 
@@ -121,6 +122,9 @@
                 "{Name} logged in with {LoginProvider} provider.",
                 externalLoginInfo.Principal.Identity?.Name,
                 externalLoginInfo.LoginProvider);
+            var signedInUser = await UserManager.FindByLoginAsync(externalLoginInfo.LoginProvider, externalLoginInfo.ProviderKey);
+            if (signedInUser is not null)
+                await Organizations.LogLoginAsync(await UserManager.GetUserIdAsync(signedInUser));
             RedirectManager.RedirectTo(ReturnUrl);
             return;
         }
@@ -179,6 +183,7 @@
                 else
                 {
                     await SignInManager.SignInAsync(user, isPersistent: false, externalLoginInfo.LoginProvider);
+                    await Organizations.LogLoginAsync(userId);
                     RedirectManager.RedirectTo(ReturnUrl);
                 }
             }
