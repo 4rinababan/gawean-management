@@ -57,9 +57,9 @@ public sealed class ChatAiAssistant : IAiAssistant
 
     public bool IsEnabled => _options.IsConfigured;
 
-    public async Task<IssueDraft> DraftIssueAsync(string prompt, CancellationToken ct = default)
+    public async Task<IssueDraft> DraftIssueAsync(string prompt, string? documentContext = null, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(prompt))
+        if (string.IsNullOrWhiteSpace(prompt) && string.IsNullOrWhiteSpace(documentContext))
         {
             throw new ArgumentException("Describe the issue first.", nameof(prompt));
         }
@@ -69,9 +69,13 @@ public sealed class ChatAiAssistant : IAiAssistant
             throw new InvalidOperationException("No AI model is configured.");
         }
 
+        var userMessage = string.IsNullOrWhiteSpace(documentContext)
+            ? prompt.Trim()
+            : $"{prompt.Trim()}\n\n--- Content extracted from an attached spec file ---\n{documentContext}";
+
         var request = new ChatRequest(
             _options.Model,
-            [new ChatMessage("system", SystemPrompt), new ChatMessage("user", prompt.Trim())],
+            [new ChatMessage("system", SystemPrompt), new ChatMessage("user", userMessage)],
             _options.MaxTokens,
             _options.Temperature);
 
@@ -186,6 +190,6 @@ public sealed class DisabledAiAssistant : IAiAssistant
 {
     public bool IsEnabled => false;
 
-    public Task<IssueDraft> DraftIssueAsync(string prompt, CancellationToken ct = default) =>
+    public Task<IssueDraft> DraftIssueAsync(string prompt, string? documentContext = null, CancellationToken ct = default) =>
         throw new InvalidOperationException("No AI model is configured.");
 }

@@ -1,0 +1,77 @@
+@namespace TaskManagement.Web.Components.Ui
+
+@* Same visual language as UserPicker (chip + dropdown), but for an arbitrary number of selections
+   instead of one — used for issue Viewers, kept separate so UserPicker's single-select Assignee
+   usage stays untouched. *@
+<div class="relative">
+    <div class="tm-select flex min-h-[2.375rem] flex-wrap items-center gap-1.5">
+        @foreach (var m in Selected)
+        {
+            <span class="inline-flex max-w-full items-center gap-1.5 rounded-full bg-brand-50 py-0.5 pl-0.5 pr-1 text-xs font-medium text-brand-800 dark:bg-brand-900/50 dark:text-brand-100" @key="m.UserId">
+                <Avatar Name="@m.DisplayName" Color="@m.AvatarColor" Size="xs" />
+                <span class="truncate">@m.DisplayName</span>
+                <button type="button" class="rounded-full px-1 leading-none text-brand-500 hover:bg-brand-100 hover:text-brand-800 dark:hover:bg-brand-800"
+                        title="@($"Remove {m.DisplayName}")" aria-label="@($"Remove {m.DisplayName}")"
+                        @onclick="() => Remove(m.UserId)" @onclick:stopPropagation="true">✕</button>
+            </span>
+        }
+        <button type="button" class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" @onclick="() => _open = !_open">
+            @(Selected.Any() ? "Add" : Placeholder)
+        </button>
+    </div>
+
+    @if (_open)
+    {
+        <div class="fixed inset-0 z-20" @onclick="() => _open = false"></div>
+        <div class="absolute z-30 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+            <input class="tm-input mx-2 my-1 !w-[calc(100%-1rem)]" placeholder="Search people…"
+                   @bind="_filter" @bind:event="oninput" />
+            @foreach (var m in Available)
+            {
+                <button type="button" class="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                        @onclick="() => Add(m.UserId)" @key="m.UserId">
+                    <Avatar Name="@m.DisplayName" Color="@m.AvatarColor" Size="xs" />
+                    <span class="truncate">@m.DisplayName</span>
+                </button>
+            }
+            @if (!Available.Any())
+            {
+                <p class="px-3 py-2 text-sm text-slate-400">No matches.</p>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<OrganizationMemberDto> Members { get; set; } = [];
+    [Parameter] public IReadOnlyList<string> Values { get; set; } = [];
+    [Parameter] public string Placeholder { get; set; } = "Add people";
+    [Parameter] public EventCallback<string> OnAdd { get; set; }
+    [Parameter] public EventCallback<string> OnRemove { get; set; }
+
+    private bool _open;
+    private string _filter = "";
+
+    private IEnumerable<OrganizationMemberDto> Selected => Members.Where(m => Values.Contains(m.UserId));
+
+    private IEnumerable<OrganizationMemberDto> Available
+    {
+        get
+        {
+            var candidates = Members.Where(m => !Values.Contains(m.UserId));
+            return string.IsNullOrWhiteSpace(_filter)
+                ? candidates
+                : candidates.Where(m => m.DisplayName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                                       || m.Email.Contains(_filter, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private async Task Add(string userId)
+    {
+        _open = false;
+        _filter = "";
+        await OnAdd.InvokeAsync(userId);
+    }
+
+    private async Task Remove(string userId) => await OnRemove.InvokeAsync(userId);
+}

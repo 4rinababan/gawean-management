@@ -8,6 +8,7 @@ public class Issue : Entity, ITenantScoped
 {
     private readonly List<Comment> _comments = [];
     private readonly List<Attachment> _attachments = [];
+    private readonly List<IssueViewer> _viewers = [];
     private readonly List<IssueChange> _changes = [];
 
     private Issue() { }
@@ -61,6 +62,9 @@ public class Issue : Entity, ITenantScoped
     public IReadOnlyCollection<Comment> Comments => _comments.AsReadOnly();
 
     public IReadOnlyCollection<Attachment> Attachments => _attachments.AsReadOnly();
+
+    /// <summary>People following this issue without being the accountable <see cref="AssigneeUserId"/>.</summary>
+    public IReadOnlyCollection<IssueViewer> Viewers => _viewers.AsReadOnly();
 
     /// <summary>Field-level changes accumulated since the entity was loaded; consumed and cleared by the application layer.</summary>
     public IReadOnlyCollection<IssueChange> DequeueChanges()
@@ -157,6 +161,29 @@ public class Issue : Entity, ITenantScoped
         _attachments.Add(attachment);
         UpdatedAt = DateTimeOffset.UtcNow;
         return attachment;
+    }
+
+    public IssueViewer AddViewer(string userId, string actorUserId)
+    {
+        userId = Guard.NotBlank(userId, nameof(userId));
+        if (_viewers.Any(v => v.UserId == userId))
+            throw new DomainException("This person already follows the issue.");
+
+        var viewer = new IssueViewer(Id, OrganizationId, userId);
+        _viewers.Add(viewer);
+        _changes.Add(new IssueChange(Id, "Viewer", null, userId, actorUserId));
+        UpdatedAt = DateTimeOffset.UtcNow;
+        return viewer;
+    }
+
+    public void RemoveViewer(string userId, string actorUserId)
+    {
+        var viewer = _viewers.FirstOrDefault(v => v.UserId == userId);
+        if (viewer is null) return;
+
+        _viewers.Remove(viewer);
+        _changes.Add(new IssueChange(Id, "Viewer", userId, null, actorUserId));
+        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     private void Record(string field, string? oldValue, string? newValue, string actorUserId)

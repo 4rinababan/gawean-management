@@ -54,6 +54,7 @@ public static class DependencyInjection
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         services.AddSingleton<IClock, SystemClock>();
 
+        services.AddSingleton<IDocumentTextExtractor, DocumentTextExtractor>();
         AddAiAssistant(services, configuration);
 
         return services;
