@@ -30,7 +30,7 @@
             <div class="space-y-4">
                 <div>
                     <label for="Input.DisplayName" class="tm-label">Display name</label>
-                    <InputText @bind-Value="Input.DisplayName" id="Input.DisplayName" class="tm-input" autocomplete="name" aria-required="true" placeholder="Ada Lovelace" />
+                    <InputText @bind-Value="Input.DisplayName" id="Input.DisplayName" class="tm-input" autocomplete="name" aria-required="true" autofocus placeholder="Ada Lovelace" />
                     <ValidationMessage For="() => Input.DisplayName" class="mt-1 block text-xs text-rose-500" />
                 </div>
                 <div>
