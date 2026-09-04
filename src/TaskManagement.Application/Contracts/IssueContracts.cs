@@ -80,10 +80,14 @@ public sealed record IssueDetailDto(
     IReadOnlyList<CommentDto> Comments,
     IReadOnlyList<ActivityDto> Activity,
     IReadOnlyList<AttachmentDto> Attachments,
-    IReadOnlyList<IssueMemberDto> Viewers);
+    IReadOnlyList<IssueMemberDto> Viewers,
+    IReadOnlyList<IssueAiNoteDto> AiNotes);
 
 /// <summary>A person referenced on an issue (currently: a viewer) resolved for display.</summary>
 public sealed record IssueMemberDto(string UserId, string DisplayName, string AvatarColor);
+
+/// <summary>A saved "Ask GAWE AI" question/answer pair for an issue.</summary>
+public sealed record IssueAiNoteDto(Guid Id, string AskedByUserId, string AskedByDisplayName, string Question, string Answer, DateTimeOffset CreatedAt);
 
 public sealed record CommentDto(Guid Id, string AuthorUserId, string AuthorDisplayName, string AuthorAvatarColor, string Body, DateTimeOffset CreatedAt, DateTimeOffset? EditedAt);
 

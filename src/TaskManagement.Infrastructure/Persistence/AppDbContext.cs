@@ -30,6 +30,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<IssueViewer> IssueViewers => Set<IssueViewer>();
+    public DbSet<IssueAiNote> IssueAiNotes => Set<IssueAiNote>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
     public DbSet<Sprint> Sprints => Set<Sprint>();
     public DbSet<Notification> Notifications => Set<Notification>();
@@ -64,6 +65,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
         builder.Entity<Comment>().HasQueryFilter(e => e.OrganizationId == TenantId);
         builder.Entity<Attachment>().HasQueryFilter(e => e.OrganizationId == TenantId);
         builder.Entity<IssueViewer>().HasQueryFilter(e => e.OrganizationId == TenantId);
+        builder.Entity<IssueAiNote>().HasQueryFilter(e => e.OrganizationId == TenantId);
         builder.Entity<ActivityLog>().HasQueryFilter(e => e.OrganizationId == TenantId);
         builder.Entity<Sprint>().HasQueryFilter(e => e.OrganizationId == TenantId);
         builder.Entity<Notification>().HasQueryFilter(e => e.OrganizationId == TenantId);

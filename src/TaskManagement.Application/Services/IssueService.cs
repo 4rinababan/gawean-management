@@ -14,7 +14,8 @@ public sealed class IssueService(
     IUserDirectory users,
     PermissionGuard guard,
     IssueChangeProcessor changeProcessor,
-    IHtmlSanitizer sanitizer)
+    IHtmlSanitizer sanitizer,
+    IAiAssistant ai)
 {
     private const int ActivityLimit = 30;
 
@@ -52,6 +53,7 @@ public sealed class IssueService(
             .Include(i => i.Comments)
             .Include(i => i.Attachments)
             .Include(i => i.Viewers)
+            .Include(i => i.AiNotes)
             .FirstOrDefaultAsync(i => i.Id == issueId, ct)
             ?? throw NotFoundException.For<Issue>(issueId);
 
@@ -76,6 +78,7 @@ public sealed class IssueService(
             .Append(issue.ReporterUserId)
             .Concat(issue.AssigneeUserId is null ? [] : [issue.AssigneeUserId])
             .Concat(issue.Viewers.Select(v => v.UserId))
+            .Concat(issue.AiNotes.Select(n => n.AskedByUserId))
             .Distinct();
         var directory = await users.GetManyAsync(userIds, ct);
 
@@ -99,6 +102,9 @@ public sealed class IssueService(
                 .ToList(),
             issue.Viewers
                 .Select(v => new IssueMemberDto(v.UserId, Name(v.UserId), Color(v.UserId)))
+                .ToList(),
+            issue.AiNotes.OrderBy(n => n.CreatedAt)
+                .Select(n => new IssueAiNoteDto(n.Id, n.AskedByUserId, Name(n.AskedByUserId), n.Question, n.Answer, n.CreatedAt))
                 .ToList());
     }
 
@@ -233,6 +239,36 @@ public sealed class IssueService(
 
         issue.RemoveViewer(userId, actor);
         await changeProcessor.ProcessAsync(db, issue, project.Key, actor, ct);
+    }
+
+    /// <summary>Asks "GAWE AI" about this issue. Read-only — open to anyone who can view the issue, including a listed Viewer.</summary>
+    public async Task<string> AskAiAsync(Guid issueId, string question, CancellationToken ct = default)
+    {
+        guard.Require(OrgPermission.ViewContent);
+        await using var db = dbf.CreateDbContext();
+
+        var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == issueId, ct)
+            ?? throw NotFoundException.For<Issue>(issueId);
+
+        return await ai.AnswerIssueQuestionAsync(issue.Title, issue.Description, question, ct);
+    }
+
+    /// <summary>Persists a question/answer the caller chose to keep. Same access as <see cref="AskAiAsync"/>.</summary>
+    public async Task<IssueAiNoteDto> SaveAiNoteAsync(Guid issueId, string question, string answer, CancellationToken ct = default)
+    {
+        guard.Require(OrgPermission.ViewContent);
+        var actor = guard.UserId;
+        await using var db = dbf.CreateDbContext();
+
+        var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == issueId, ct)
+            ?? throw NotFoundException.For<Issue>(issueId);
+
+        var note = issue.AddAiNote(actor, question, answer, actor);
+        db.IssueAiNotes.Add(note); // client-generated id: force Added rather than EF's key-is-set heuristic
+        await db.SaveChangesAsync(ct);
+
+        var author = await users.GetAsync(actor, ct);
+        return new IssueAiNoteDto(note.Id, actor, author?.DisplayName ?? "You", question, answer, note.CreatedAt);
     }
 
     public async Task<CommentDto> AddCommentAsync(AddCommentRequest request, CancellationToken ct = default)

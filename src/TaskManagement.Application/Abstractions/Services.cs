@@ -96,6 +96,13 @@ public interface IAiAssistant
     /// author is expected to review before saving.
     /// </summary>
     Task<IssueDraft> DraftIssueAsync(string prompt, string? documentContext = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Answers a free-text question about one issue — for "Ask GAWE AI" on the issue detail page. Scoped
+    /// to that issue (and to what GaweAn is, if asked); anything else, the model is instructed to decline.
+    /// The returned HTML is already sanitised, same as <see cref="DraftIssueAsync"/>'s description.
+    /// </summary>
+    Task<string> AnswerIssueQuestionAsync(string issueTitle, string? issueDescription, string question, CancellationToken ct = default);
 }
 
 /// <summary>

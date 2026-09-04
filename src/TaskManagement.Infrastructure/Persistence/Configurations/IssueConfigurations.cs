@@ -35,9 +35,11 @@ public sealed class IssueConfiguration : IEntityTypeConfiguration<Issue>
         builder.HasMany(i => i.Comments).WithOne().HasForeignKey(c => c.IssueId).OnDelete(DeleteBehavior.Cascade);
         builder.HasMany(i => i.Attachments).WithOne().HasForeignKey(a => a.IssueId).OnDelete(DeleteBehavior.Cascade);
         builder.HasMany(i => i.Viewers).WithOne().HasForeignKey(v => v.IssueId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasMany(i => i.AiNotes).WithOne().HasForeignKey(n => n.IssueId).OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(i => i.Comments).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.Navigation(i => i.Attachments).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.Navigation(i => i.Viewers).UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.Navigation(i => i.AiNotes).UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }
 
@@ -75,6 +77,19 @@ public sealed class IssueViewerConfiguration : IEntityTypeConfiguration<IssueVie
         builder.HasKey(v => v.Id);
         builder.Property(v => v.UserId).HasMaxLength(450).IsRequired();
         builder.HasIndex(v => new { v.IssueId, v.UserId }).IsUnique();
+    }
+}
+
+public sealed class IssueAiNoteConfiguration : IEntityTypeConfiguration<IssueAiNote>
+{
+    public void Configure(EntityTypeBuilder<IssueAiNote> builder)
+    {
+        builder.ToTable("issue_ai_notes");
+        builder.HasKey(n => n.Id);
+        builder.Property(n => n.AskedByUserId).HasMaxLength(450).IsRequired();
+        builder.Property(n => n.Question).HasMaxLength(2000).IsRequired();
+        builder.Property(n => n.Answer).HasMaxLength(8000).IsRequired();
+        builder.HasIndex(n => n.IssueId);
     }
 }
 

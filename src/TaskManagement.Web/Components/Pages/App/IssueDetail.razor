@@ -13,6 +13,7 @@
 @inject ProjectService Projects
 @inject ToastService Toasts
 @inject ICurrentUser CurrentUser
+@inject IAiAssistant Ai
 
 <PageTitle>@(_issue?.Reference ?? "Issue")</PageTitle>
 
@@ -78,6 +79,44 @@ else
                     }
                 }
             </Card>
+
+            @if (Ai.IsEnabled)
+            {
+                <Card Header="@AskAiHeader">
+                    <div class="flex gap-2">
+                        <input class="tm-input" @bind="_aiQuestion" @bind:event="oninput" disabled="@_asking"
+                               placeholder="e.g. jelaskan detail requirement export mapping-nya" />
+                        <Button Variant="Button.ButtonVariant.Secondary" OnClick="AskAiAsync" Loading="_asking"
+                                Disabled="@(string.IsNullOrWhiteSpace(_aiQuestion))">
+                            <Icon Name="sparkles" Class="h-4 w-4" /> Ask
+                        </Button>
+                    </div>
+
+                    @if (_aiAnswerHtml is not null)
+                    {
+                        <div class="mt-3 rounded-lg border border-brand-200 bg-brand-50/60 p-3 dark:border-brand-900 dark:bg-brand-950/40">
+                            <RichTextView Html="@_aiAnswerHtml" />
+                            <div class="mt-3 flex justify-end gap-2">
+                                <Button Variant="Button.ButtonVariant.Secondary" OnClick="AskAiAsync" Loading="_asking">Regenerate</Button>
+                                <Button Loading="_savingNote" OnClick="SaveAiNoteAsync">Save</Button>
+                            </div>
+                        </div>
+                    }
+
+                    @if (_issue.AiNotes.Count > 0)
+                    {
+                        <div class="mt-4 space-y-3">
+                            @foreach (var note in _issue.AiNotes)
+                            {
+                                <div class="rounded-lg border border-slate-100 p-3 dark:border-slate-800" @key="note.Id">
+                                    <p class="text-xs text-slate-400">"@note.Question" — asked by @note.AskedByDisplayName, @note.CreatedAt.LocalDateTime.ToString("d MMM yyyy, HH:mm")</p>
+                                    <div class="mt-1"><RichTextView Html="@note.Answer" /></div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </Card>
+            }
 
             <Card Header="@CommentsHeader">
                 @foreach (var c in _issue.Comments)
@@ -287,7 +326,12 @@ else
     private bool _editingDescription;
     private bool _confirmDelete;
     private Guid? _confirmDeleteAttachmentId;
+    private string? _aiQuestion;
+    private string? _aiAnswerHtml;
+    private bool _asking;
+    private bool _savingNote;
 
+    private RenderFragment AskAiHeader => @<span class="text-sm font-semibold">Ask GAWE AI</span>;
     private RenderFragment CommentsHeader => @<span class="text-sm font-semibold">Comments (@(_issue?.Comments.Count ?? 0))</span>;
     private RenderFragment ActivityHeader => @<span class="text-sm font-semibold">Activity</span>;
     private RenderFragment AttachmentsHeader => @<span class="text-sm font-semibold">Attachments</span>;
@@ -482,6 +526,34 @@ else
         }
         sb.Append(HtmlEncoder.Default.Encode(body[cursor..]));
         return new MarkupString(sb.ToString());
+    }
+
+    private async Task AskAiAsync()
+    {
+        if (_asking || string.IsNullOrWhiteSpace(_aiQuestion)) return;
+        _asking = true;
+        try
+        {
+            _aiAnswerHtml = await Issues.AskAiAsync(IssueId, _aiQuestion);
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _asking = false; }
+    }
+
+    private async Task SaveAiNoteAsync()
+    {
+        if (_aiAnswerHtml is null || string.IsNullOrWhiteSpace(_aiQuestion)) return;
+        _savingNote = true;
+        try
+        {
+            await Issues.SaveAiNoteAsync(IssueId, _aiQuestion, _aiAnswerHtml);
+            _aiAnswerHtml = null;
+            _aiQuestion = null;
+            await LoadAsync();
+            Toasts.Success("Saved.");
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _savingNote = false; }
     }
 
     private async Task AddCommentAsync()
