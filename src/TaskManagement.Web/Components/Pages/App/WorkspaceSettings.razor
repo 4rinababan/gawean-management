@@ -49,6 +49,30 @@ else
         <div class="mt-4"><a href="@($"/{Slug}/members")"><Button Variant="Button.ButtonVariant.Secondary">Manage members</Button></a></div>
     </Card>
 
+    <Card Class="mt-6 max-w-xl">
+        <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">Audit log</h3>
+        <p class="mt-1 text-sm text-slate-500">Sign-ins and membership changes for this workspace, most recent first.</p>
+        @if (_auditLog.Count == 0)
+        {
+            <p class="mt-4 text-xs text-slate-400">No activity recorded yet.</p>
+        }
+        else
+        {
+            <ol class="mt-4 max-h-96 space-y-3 overflow-y-auto pr-1 text-xs text-slate-500">
+                @foreach (var entry in _auditLog)
+                {
+                    <li @key="entry.Id">
+                        <div>
+                            <span class="font-medium text-slate-700 dark:text-slate-200">@entry.ActorDisplayName</span>
+                            <span> @Decapitalize(entry.Detail)</span>
+                        </div>
+                        <time class="text-slate-400">@entry.CreatedAt.LocalDateTime.ToString("d MMM yyyy, HH:mm")</time>
+                    </li>
+                }
+            </ol>
+        }
+    </Card>
+
     <Card Class="mt-6 max-w-xl border-rose-200 dark:border-rose-900">
         <h3 class="text-sm font-semibold text-rose-700 dark:text-rose-400">Delete this workspace</h3>
         <p class="mt-1 text-sm text-slate-500">
@@ -90,6 +114,7 @@ else
     private bool _showDelete;
     private string _deleteConfirmation = "";
     private int _memberCount;
+    private IReadOnlyList<OrgAuditLogEntryDto> _auditLog = [];
 
     private bool CanManage => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.ManageOrganization);
 
@@ -99,6 +124,9 @@ else
         var current = mine.FirstOrDefault(o => o.Slug == Slug);
         _form.Name = current?.Name ?? "";
         _memberCount = current?.MemberCount ?? 0;
+
+        if (CanManage)
+            _auditLog = await Organizations.GetAuditLogAsync();
     }
 
     private void BeginDelete()
@@ -121,6 +149,8 @@ else
     }
 
     private void WarnInvalid() => Toasts.Warning("Please fix the highlighted fields.");
+
+    private static string Decapitalize(string s) => s.Length == 0 ? s : char.ToLowerInvariant(s[0]) + s[1..];
 
     private async Task SaveAsync()
     {

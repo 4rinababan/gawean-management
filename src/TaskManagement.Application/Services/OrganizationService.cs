@@ -4,6 +4,7 @@ using TaskManagement.Application.Common;
 using TaskManagement.Application.Contracts;
 using TaskManagement.Domain;
 using TaskManagement.Domain.Authorization;
+using TaskManagement.Domain.Issues;
 using TaskManagement.Domain.Organizations;
 
 namespace TaskManagement.Application.Services;
@@ -78,6 +79,12 @@ public sealed class OrganizationService(
         if (await db.IgnoringTenantFilter<Organization>().AnyAsync(o => o.Slug == slug, ct))
             throw new ConflictException($"The workspace URL '{slug}' is already taken.");
 
+        // Anti-abuse cap on self-created workspaces only — joining an existing one via invite
+        // (InvitationService.AcceptAsync) isn't subject to this, so a real team invite never bounces.
+        var existingCount = await db.IgnoringTenantFilter<OrganizationMember>().CountAsync(m => m.UserId == userId, ct);
+        if (existingCount >= WorkspaceLimits.MaxWorkspacesPerUser)
+            throw new ConflictException($"You've reached the limit of {WorkspaceLimits.MaxWorkspacesPerUser} workspaces per account.");
+
         var org = new Organization(request.Name, slug, userId);
         db.Organizations.Add(org);
         await db.SaveChangesAsync(ct);
@@ -124,7 +131,9 @@ public sealed class OrganizationService(
         var org = await db.Organizations.FirstOrDefaultAsync(o => o.Id == guard.OrganizationId, ct)
             ?? throw NotFoundException.For<Organization>(guard.OrganizationId);
 
+        var oldName = org.Name;
         org.Rename(name);
+        db.OrganizationAuditLogs.Add(new OrganizationAuditLog(guard.OrganizationId, guard.UserId, "WorkspaceRenamed", $"Renamed workspace from \"{oldName}\" to \"{org.Name}\""));
         await db.SaveChangesAsync(ct);
     }
 
@@ -142,6 +151,10 @@ public sealed class OrganizationService(
 
         if (!string.Equals(confirmationName.Trim(), org.Name, StringComparison.Ordinal))
             throw new ConflictException("The name you typed doesn't match this workspace.");
+
+        // No audit-log entry here on purpose: OrganizationAuditLog cascades on the org's FK, so a
+        // "WorkspaceDeleted" row would just be deleted along with everything else in this same
+        // operation — and nobody could view it afterwards anyway (GetAuditLogAsync needs a live org).
 
         // Collect blob keys before the rows go: the database cascade cannot clean up the file store.
         var storageKeys = await db.Attachments
@@ -172,6 +185,8 @@ public sealed class OrganizationService(
 
         var org = await LoadOrganizationWithMembersAsync(db, ct);
         org.ChangeMemberRole(targetUserId, role);
+        db.OrganizationAuditLogs.Add(new OrganizationAuditLog(
+            guard.OrganizationId, guard.UserId, "MemberRoleChanged", $"Changed a member's role to {role}", targetUserId));
         await db.SaveChangesAsync(ct);
     }
 
@@ -182,6 +197,8 @@ public sealed class OrganizationService(
 
         var org = await LoadOrganizationWithMembersAsync(db, ct);
         org.RemoveMember(targetUserId);
+        db.OrganizationAuditLogs.Add(new OrganizationAuditLog(
+            guard.OrganizationId, guard.UserId, "MemberRemoved", "Removed a member from the workspace", targetUserId));
         await db.SaveChangesAsync(ct);
     }
 
@@ -190,4 +207,77 @@ public sealed class OrganizationService(
                .Include(o => o.Members)
                .FirstOrDefaultAsync(o => o.Id == guard.OrganizationId, ct)
            ?? throw NotFoundException.For<Organization>(guard.OrganizationId);
+
+    /// <summary>
+    /// Login is an account-level event, not tied to one org, so it's recorded once per organization
+    /// the user belongs to — each workspace's own admins see it in their own audit log, since there's
+    /// no cross-org admin view to put a single entry in instead. Called from every sign-in success path.
+    /// </summary>
+    public async Task LogLoginAsync(string userId, CancellationToken ct = default)
+    {
+        await using var db = dbf.CreateDbContext();
+
+        var orgIds = await db.IgnoringTenantFilter<OrganizationMember>()
+            .Where(m => m.UserId == userId)
+            .Select(m => m.OrganizationId)
+            .ToListAsync(ct);
+        if (orgIds.Count == 0) return;
+
+        foreach (var orgId in orgIds)
+            db.OrganizationAuditLogs.Add(new OrganizationAuditLog(orgId, userId, "Login", "Signed in"));
+
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>The last 200 audit entries for the current workspace. Admin-only, same gate as Rename/Delete.</summary>
+    public async Task<IReadOnlyList<OrgAuditLogEntryDto>> GetAuditLogAsync(CancellationToken ct = default)
+    {
+        guard.Require(OrgPermission.ManageOrganization);
+        await using var db = dbf.CreateDbContext();
+
+        var entries = await db.OrganizationAuditLogs
+            .Where(a => a.OrganizationId == guard.OrganizationId)
+            .OrderByDescending(a => a.CreatedAt)
+            .Take(200)
+            .ToListAsync(ct);
+
+        var userIds = entries.Select(e => e.ActorUserId)
+            .Concat(entries.Where(e => e.TargetUserId != null).Select(e => e.TargetUserId!))
+            .Distinct();
+        var directory = await users.GetManyAsync(userIds, ct);
+        string Name(string id) => directory.TryGetValue(id, out var u) ? u.DisplayName : "Unknown";
+
+        return entries
+            .Select(e => new OrgAuditLogEntryDto(e.Id, e.EventType, e.Detail, Name(e.ActorUserId), e.TargetUserId is null ? null : Name(e.TargetUserId), e.CreatedAt))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Everything GaweAn holds about this user beyond their Identity account fields, for the "download
+    /// your data" export: workspaces they belong to, issues they reported, comments they authored.
+    /// </summary>
+    public async Task<PersonalDataSummaryDto> GetMyDataSummaryAsync(string userId, CancellationToken ct = default)
+    {
+        await using var db = dbf.CreateDbContext();
+
+        var organizations = await db.IgnoringTenantFilter<OrganizationMember>()
+            .Where(m => m.UserId == userId)
+            .Join(db.IgnoringTenantFilter<Organization>(), m => m.OrganizationId, o => o.Id, (m, o) => new { o.Name, m.Role })
+            .ToListAsync(ct);
+
+        var issues = await db.IgnoringTenantFilter<Issue>()
+            .Where(i => i.ReporterUserId == userId)
+            .Select(i => new { i.Title, i.Number })
+            .ToListAsync(ct);
+
+        var comments = await db.IgnoringTenantFilter<Comment>()
+            .Where(c => c.AuthorUserId == userId)
+            .Select(c => c.CreatedAt)
+            .ToListAsync(ct);
+
+        return new PersonalDataSummaryDto(
+            organizations.Select(o => $"{o.Name} ({o.Role})").ToList(),
+            issues.Select(i => $"#{i.Number} {i.Title}").ToList(),
+            comments.Count);
+    }
 }

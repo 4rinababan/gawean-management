@@ -40,7 +40,8 @@
                 </div>
                 <div>
                     <label for="Input.Password" class="tm-label">Password</label>
-                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="tm-input" autocomplete="new-password" aria-required="true" placeholder="At least 6 characters" />
+                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="tm-input" autocomplete="new-password" aria-required="true" placeholder="••••••••" />
+                    <p class="mt-1 text-xs text-slate-400">At least 8 characters, including a letter and a number.</p>
                     <ValidationMessage For="() => Input.Password" class="mt-1 block text-xs text-rose-500" />
                 </div>
                 <div>
@@ -160,7 +161,7 @@
         public string Email { get; set; } = "";
 
         [Required]
-        [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+        [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 8)]
         [DataType(DataType.Password)]
         [Display(Name = "Password")]
         public string Password { get; set; } = "";

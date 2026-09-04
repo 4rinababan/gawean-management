@@ -71,6 +71,15 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
         options.SignIn.RequireConfirmedAccount = true;
         options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
+
+        // Explicit rather than Identity's stock default (digit+lower+upper+symbol, 6 chars): length
+        // plus a little variety, not mandatory symbol soup — and, critically, whatever this says must
+        // match the hint text shown on every "set a password" page.
+        options.Password.RequiredLength = 8;
+        options.Password.RequireDigit = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireNonAlphanumeric = false;
     })
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>()

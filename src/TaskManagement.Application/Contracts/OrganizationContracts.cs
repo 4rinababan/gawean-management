@@ -22,3 +22,8 @@ public sealed record OrganizationMemberDto(string UserId, string DisplayName, st
 public sealed record InvitationDto(Guid Id, string Email, OrgRole Role, DateTimeOffset ExpiresAt, string InvitedByDisplayName, string AcceptUrl);
 
 public sealed record AcceptInvitationResult(string OrganizationSlug, string OrganizationName);
+
+public sealed record OrgAuditLogEntryDto(Guid Id, string EventType, string Detail, string ActorDisplayName, string? TargetDisplayName, DateTimeOffset CreatedAt);
+
+/// <summary>The application-level content behind a "download your data" export — everything beyond the Identity account fields already exported.</summary>
+public sealed record PersonalDataSummaryDto(IReadOnlyList<string> Workspaces, IReadOnlyList<string> ReportedIssues, int CommentCount);

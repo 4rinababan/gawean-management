@@ -34,6 +34,21 @@ public sealed class OrganizationMemberConfiguration : IEntityTypeConfiguration<O
     }
 }
 
+public sealed class OrganizationAuditLogConfiguration : IEntityTypeConfiguration<OrganizationAuditLog>
+{
+    public void Configure(EntityTypeBuilder<OrganizationAuditLog> builder)
+    {
+        builder.ToTable("organization_audit_logs");
+        builder.HasKey(a => a.Id);
+        builder.Property(a => a.ActorUserId).HasMaxLength(450).IsRequired();
+        builder.Property(a => a.TargetUserId).HasMaxLength(450);
+        builder.Property(a => a.EventType).HasMaxLength(64).IsRequired();
+        builder.Property(a => a.Detail).HasMaxLength(1000).IsRequired();
+        builder.HasIndex(a => new { a.OrganizationId, a.CreatedAt });
+        builder.HasOne<Organization>().WithMany().HasForeignKey(a => a.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 public sealed class InvitationConfiguration : IEntityTypeConfiguration<Invitation>
 {
     public void Configure(EntityTypeBuilder<Invitation> builder)
