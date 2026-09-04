@@ -11,24 +11,25 @@
 
 <PageTitle>Recovery code verification</PageTitle>
 
-<h1>Recovery code verification</h1>
-<hr />
-<StatusMessage Message="@message" />
-<p>
-    You have requested to log in with a recovery code. This login will not be remembered until you provide
-    an authenticator app code at log in or disable 2FA and log in again.
-</p>
-<div class="row">
-    <div class="col-md-4">
+<div class="mx-auto max-w-sm py-8">
+    <h1 class="text-center text-2xl font-semibold text-slate-900 dark:text-slate-100">Recovery code verification</h1>
+    <p class="mt-1 text-center text-sm text-slate-500 dark:text-slate-400">
+        This login will not be remembered until you provide an authenticator app code at log in or disable 2FA and log in again.
+    </p>
+
+    <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <StatusMessage Message="@message" />
         <EditForm Model="Input" FormName="login-with-recovery-code" OnValidSubmit="OnValidSubmitAsync" method="post">
             <DataAnnotationsValidator />
             <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.RecoveryCode" id="Input.RecoveryCode" class="form-control" autocomplete="off" placeholder="RecoveryCode" />
-                <label for="Input.RecoveryCode" class="form-label">Recovery Code</label>
-                <ValidationMessage For="() => Input.RecoveryCode" class="text-danger" />
+            <div class="space-y-4">
+                <div>
+                    <label for="Input.RecoveryCode" class="tm-label">Recovery code</label>
+                    <InputText @bind-Value="Input.RecoveryCode" id="Input.RecoveryCode" class="tm-input" autocomplete="off" autofocus placeholder="Recovery code" />
+                    <ValidationMessage For="() => Input.RecoveryCode" class="mt-1 block text-xs text-rose-500" />
+                </div>
+                <button type="submit" class="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700">Log in</button>
             </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
         </EditForm>
     </div>
 </div>
