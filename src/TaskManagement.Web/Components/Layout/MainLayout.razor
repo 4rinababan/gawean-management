@@ -59,7 +59,11 @@
         el.classList.remove('hidden');
         btn.addEventListener('click', function () {
             try { localStorage.setItem('cookie-notice-dismissed', '1'); } catch (e) { /* ignore */ }
-            el.classList.add('hidden');
+            // Not classList.add('hidden'): this element also carries the responsive `sm:flex` utility,
+            // and Tailwind emits responsive variants after the plain utilities, so at `sm` and up
+            // `sm:flex` wins the cascade over `hidden` even once both classes are present. An inline
+            // style always wins regardless of class order, so it's the only reliable way to hide this.
+            el.style.display = 'none';
         });
     })();
 </script>

@@ -1,28 +1,37 @@
 @namespace TaskManagement.Web.Components.Ui
 
 <div data-issue-id="@Issue.Id"
-     class="cursor-pointer rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-brand-300 hover:shadow dark:border-slate-700 dark:bg-slate-800"
+     class="flex cursor-pointer overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:border-brand-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
      @onclick="OnOpen">
-    <p class="text-sm font-medium text-slate-800 dark:text-slate-100">@Issue.Title</p>
-    <div class="mt-2 flex items-center justify-between">
-        <div class="flex items-center gap-1.5 text-xs text-slate-400">
-            <span class="@IssueVisuals.TypeIcon(Issue.Type)" title="@Issue.Type">@IssueVisuals.TypeSymbol(Issue.Type)</span>
-            <span class="font-mono">@Issue.Reference</span>
-            @if (Issue.StoryPoints is int sp)
+    <div class="@($"w-1 shrink-0 {IssueVisuals.TypeAccentColor(Issue.Type)}")" title="@Issue.Type"></div>
+    <div class="min-w-0 flex-1 p-3">
+        <p class="text-sm font-medium text-slate-800 dark:text-slate-100">@Issue.Title</p>
+        <div class="mt-2 flex items-center justify-between">
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+                <span class="@IssueVisuals.TypeIcon(Issue.Type)" title="@Issue.Type">@IssueVisuals.TypeSymbol(Issue.Type)</span>
+                <span class="font-mono">@Issue.Reference</span>
+                @if (Issue.StoryPoints is int sp)
+                {
+                    <span class="rounded bg-slate-100 px-1.5 font-semibold text-slate-500 dark:bg-slate-700">@sp</span>
+                }
+                @if (Issue.AttachmentCount > 0)
+                {
+                    <span class="flex items-center gap-0.5" title="@($"{Issue.AttachmentCount} attachment{(Issue.AttachmentCount == 1 ? "" : "s")}")">
+                        <Icon Name="paper-clip" Class="h-3.5 w-3.5" />@Issue.AttachmentCount
+                    </span>
+                }
+                @if (Issue.DueDate is { } due)
+                {
+                    <span class="@(Issue.IsOverdue ? "font-semibold text-rose-600 dark:text-rose-400" : "text-slate-400")">
+                        @(Issue.IsOverdue ? "⚠ " : "")@due.ToString("MMM d")
+                    </span>
+                }
+            </div>
+            @if (Issue.AssigneeUserId is not null)
             {
-                <span class="ml-1 rounded bg-slate-100 px-1.5 font-semibold text-slate-500 dark:bg-slate-700">@sp</span>
-            }
-            @if (Issue.DueDate is { } due)
-            {
-                <span class="@(Issue.IsOverdue ? "font-semibold text-rose-600 dark:text-rose-400" : "text-slate-400")">
-                    @(Issue.IsOverdue ? "⚠ " : "")@due.ToString("MMM d")
-                </span>
+                <Avatar Name="@Issue.AssigneeDisplayName" Color="@Issue.AssigneeAvatarColor" Size="xs" />
             }
         </div>
-        @if (Issue.AssigneeUserId is not null)
-        {
-            <Avatar Name="@Issue.AssigneeDisplayName" Color="@Issue.AssigneeAvatarColor" Size="xs" />
-        }
     </div>
 </div>
 

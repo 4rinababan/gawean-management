@@ -54,7 +54,8 @@ public sealed record IssueListItemDto(
     Guid? SprintId,
     string BoardRank,
     DateOnly? DueDate,
-    bool IsOverdue);
+    bool IsOverdue,
+    int AttachmentCount);
 
 public sealed record IssueDetailDto(
     Guid Id,
