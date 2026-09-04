@@ -117,12 +117,14 @@ else
                             var idx = i;
                             var action = _form.Actions[idx];
                             <div class="flex items-start gap-2 rounded-lg border border-slate-200 p-2 dark:border-slate-700">
-                                <select class="tm-select" value="@action.Type" @onchange="e => ChangeActionType(idx, e.Value)">
-                                    @foreach (var t in Enum.GetValues<AutomationActionType>())
-                                    {
-                                        <option value="@t">@ActionLabel(t)</option>
-                                    }
-                                </select>
+                                <div class="w-40 shrink-0">
+                                    <select class="tm-select" value="@action.Type" @onchange="e => ChangeActionType(idx, e.Value)">
+                                        @foreach (var t in Enum.GetValues<AutomationActionType>())
+                                        {
+                                            <option value="@t">@ActionLabel(t)</option>
+                                        }
+                                    </select>
+                                </div>
 
                                 <div class="min-w-0 flex-1">
                                     @if (action.Type == AutomationActionType.SetStatus)
@@ -168,7 +170,7 @@ else
                                     }
                                 </div>
 
-                                <button type="button" class="mt-2 text-slate-400 hover:text-rose-600" title="Remove action" @onclick="() => RemoveAction(idx)">
+                                <button type="button" class="mt-2 shrink-0 text-slate-400 hover:text-rose-600" title="Remove action" @onclick="() => RemoveAction(idx)">
                                     <Icon Name="x-mark" Class="h-4 w-4" />
                                 </button>
                             </div>
