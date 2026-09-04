@@ -1,4 +1,5 @@
 using TaskManagement.Application.Abstractions;
+using TaskManagement.Domain;
 using TaskManagement.Domain.Authorization;
 
 namespace TaskManagement.Application.Common;
@@ -9,6 +10,8 @@ public sealed class PermissionGuard(ITenantContext tenant, ICurrentUser currentU
     public Guid OrganizationId => tenant.OrganizationId;
 
     public string UserId => currentUser.RequireUserId();
+
+    public OrgRole Role => tenant.Role;
 
     public bool Allows(OrgPermission permission) => RolePermissions.Allows(tenant.Role, permission);
 

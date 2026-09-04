@@ -18,6 +18,17 @@ public sealed class IssueService(
 {
     private const int ActivityLimit = 30;
 
+    /// <summary>
+    /// Description/type/sprint/assignee/viewers: the reporter, or an org admin — unless that admin is the
+    /// issue's assignee, in which case they're narrowed to <see cref="CanEditStatus"/> like any other assignee.
+    /// </summary>
+    private bool CanEditGeneral(Issue issue)
+        => issue.ReporterUserId == guard.UserId || (guard.Role == OrgRole.Admin && issue.AssigneeUserId != guard.UserId);
+
+    /// <summary>Status can additionally be changed by the assignee, even a non-admin one.</summary>
+    private bool CanEditStatus(Issue issue)
+        => CanEditGeneral(issue) || issue.AssigneeUserId == guard.UserId;
+
     public async Task<IReadOnlyList<IssueListItemDto>> GetBacklogAsync(Guid projectId, CancellationToken ct = default)
     {
         guard.Require(OrgPermission.ViewContent);
@@ -125,8 +136,14 @@ public sealed class IssueService(
             ?? throw NotFoundException.For<Issue>(issueId);
         var project = await RequireProjectAsync(db, issue.ProjectId, ct);
 
-        // Summary/priority/story points/due date are reserved for whoever reported the issue — everything
-        // else on this shared request (description, type, sprint, assignee) stays open to any editor.
+        // This shared request covers every field except status, so it's gated at general-edit level:
+        // the reporter, or an admin who isn't the assignee. A plain assignee has no business here at all
+        // (they're status-only) and reaches ChangeStatusAsync instead.
+        if (!CanEditGeneral(issue))
+            throw new ForbiddenException("Only the reporter, or an admin who isn't the assignee, can edit this issue.");
+
+        // Summary/priority/story points/due date are narrower still: reserved for the reporter alone,
+        // even from an admin who otherwise has general edit access.
         var restrictedFieldChanged =
             request.Title != issue.Title
             || request.Priority != issue.Priority
@@ -149,13 +166,18 @@ public sealed class IssueService(
 
     public async Task ChangeStatusAsync(Guid issueId, IssueStatus status, CancellationToken ct = default)
     {
-        guard.Require(OrgPermission.EditIssue);
+        // Deliberately coarser than EditIssue: an issue can be assigned to any org member (including one
+        // whose org role is Viewer), and that person must still be able to move their own assigned work.
+        guard.Require(OrgPermission.ViewContent);
         var actor = guard.UserId;
         await using var db = dbf.CreateDbContext();
 
         var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == issueId, ct)
             ?? throw NotFoundException.For<Issue>(issueId);
         var project = await RequireProjectAsync(db, issue.ProjectId, ct);
+
+        if (!CanEditStatus(issue))
+            throw new ForbiddenException("Only the reporter, the assignee, or an admin can change the status.");
 
         issue.ChangeStatus(status, actor);
         await changeProcessor.ProcessAsync(db, issue, project.Key, actor, ct);
@@ -171,6 +193,9 @@ public sealed class IssueService(
             ?? throw NotFoundException.For<Issue>(issueId);
         var project = await RequireProjectAsync(db, issue.ProjectId, ct);
 
+        if (!CanEditGeneral(issue))
+            throw new ForbiddenException("Only the reporter, or an admin who isn't the assignee, can reassign this issue.");
+
         issue.Assign(assigneeUserId, actor);
         await changeProcessor.ProcessAsync(db, issue, project.Key, actor, ct);
     }
@@ -184,6 +209,9 @@ public sealed class IssueService(
         var issue = await db.Issues.Include(i => i.Viewers).FirstOrDefaultAsync(i => i.Id == issueId, ct)
             ?? throw NotFoundException.For<Issue>(issueId);
         var project = await RequireProjectAsync(db, issue.ProjectId, ct);
+
+        if (!CanEditGeneral(issue))
+            throw new ForbiddenException("Only the reporter, or an admin who isn't the assignee, can manage viewers.");
 
         var viewer = issue.AddViewer(userId, actor);
         db.IssueViewers.Add(viewer); // client-generated ids: force Added rather than EF's key-is-set heuristic
@@ -200,19 +228,26 @@ public sealed class IssueService(
             ?? throw NotFoundException.For<Issue>(issueId);
         var project = await RequireProjectAsync(db, issue.ProjectId, ct);
 
+        if (!CanEditGeneral(issue))
+            throw new ForbiddenException("Only the reporter, or an admin who isn't the assignee, can manage viewers.");
+
         issue.RemoveViewer(userId, actor);
         await changeProcessor.ProcessAsync(db, issue, project.Key, actor, ct);
     }
 
     public async Task<CommentDto> AddCommentAsync(AddCommentRequest request, CancellationToken ct = default)
     {
-        guard.Require(OrgPermission.CommentOnIssue);
+        guard.Require(OrgPermission.ViewContent);
         var actor = guard.UserId;
         await using var db = dbf.CreateDbContext();
 
-        var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == request.IssueId, ct)
+        var issue = await db.Issues.Include(i => i.Viewers).FirstOrDefaultAsync(i => i.Id == request.IssueId, ct)
             ?? throw NotFoundException.For<Issue>(request.IssueId);
         var project = await RequireProjectAsync(db, issue.ProjectId, ct);
+
+        // A listed viewer can always comment, even on the rare org-Viewer-role account that otherwise couldn't.
+        if (!guard.Allows(OrgPermission.CommentOnIssue) && !issue.Viewers.Any(v => v.UserId == actor))
+            throw new ForbiddenException("You don't have permission to comment on this issue.");
 
         var comment = issue.AddComment(actor, request.Body);
         db.Comments.Add(comment); // client-generated ids: force Added rather than EF's key-is-set heuristic
