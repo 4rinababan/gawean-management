@@ -11,50 +11,53 @@
 
 <PageTitle>Manage your passkeys</PageTitle>
 
-<h3>Manage your passkeys</h3>
+<h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-slate-100">Manage your passkeys</h2>
 
 <StatusMessage />
 
-@if (currentPasskeys is { Count: > 0 })
-{
-    <table class="table">
-        <tbody>
+<Card Padded="false">
+    @if (currentPasskeys is { Count: > 0 })
+    {
+        <ul class="divide-y divide-slate-100 dark:divide-slate-800">
             @foreach (var passkey in currentPasskeys)
             {
-                <tr>
-                    <td>@(passkey.Name ?? "Unnamed passkey")</td>
-                    <td>
-                        @{
-                            var credentialId = Base64Url.EncodeToString(passkey.CredentialId);
-                        }
-                        <form @formname="@($"update-passkey-{credentialId}")" @onsubmit="UpdatePasskey" method="post">
-                            <AntiforgeryToken />
-                            <div>
-                                <input type="hidden" name="CredentialId" value="@credentialId" />
-                                <button type="submit" name="Action" value="rename" class="btn btn-primary" title="Rename this passkey">Rename</button>
-                                <button type="submit" name="Action" value="delete" class="btn btn-danger" title="Remove this passkey from your account">Delete</button>
-                            </div>
-                        </form>
-                    </td>
-                </tr>
+                <li class="flex items-center justify-between gap-3 px-5 py-3">
+                    <span class="text-sm font-medium text-slate-700 dark:text-slate-200">@(passkey.Name ?? "Unnamed passkey")</span>
+                    @{
+                        var credentialId = Base64Url.EncodeToString(passkey.CredentialId);
+                    }
+                    <form @formname="@($"update-passkey-{credentialId}")" @onsubmit="UpdatePasskey" method="post">
+                        <AntiforgeryToken />
+                        <div class="flex gap-2">
+                            <input type="hidden" name="CredentialId" value="@credentialId" />
+                            <button type="submit" name="Action" value="rename"
+                                    class="rounded-lg bg-brand-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
+                                    title="Rename this passkey">Rename</button>
+                            <button type="submit" name="Action" value="delete"
+                                    class="rounded-lg bg-rose-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-rose-700"
+                                    title="Remove this passkey from your account">Delete</button>
+                        </div>
+                    </form>
+                </li>
             }
-        </tbody>
-    </table>
-}
-else
-{
-    <p>No passkeys are registered.</p>
-}
-
-<form @formname="add-passkey" @onsubmit="AddPasskey" method="post">
-    <AntiforgeryToken />
-    @if (currentPasskeys is { Count: >= MaxPasskeyCount })
-    {
-        <p class="text-danger">You have reached the maximum number of allowed passkeys. Please delete one before adding a new one.</p>
+        </ul>
     }
     else
     {
-        <PasskeySubmit Operation="PasskeyOperation.Create" Name="Input" class="btn btn-primary">Add a new passkey</PasskeySubmit>
+        <p class="p-5 text-sm text-slate-400">No passkeys are registered.</p>
+    }
+</Card>
+
+<form class="mt-4" @formname="add-passkey" @onsubmit="AddPasskey" method="post">
+    <AntiforgeryToken />
+    @if (currentPasskeys is { Count: >= MaxPasskeyCount })
+    {
+        <p class="text-sm text-rose-600 dark:text-rose-400">You have reached the maximum number of allowed passkeys. Please delete one before adding a new one.</p>
+    }
+    else
+    {
+        <PasskeySubmit Operation="PasskeyOperation.Create" Name="Input"
+                       class="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700">Add a new passkey</PasskeySubmit>
     }
 
 </form>

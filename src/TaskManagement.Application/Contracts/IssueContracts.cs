@@ -69,6 +69,7 @@ public sealed record IssueDetailDto(
     int? StoryPoints,
     string ReporterUserId,
     string ReporterDisplayName,
+    string ReporterAvatarColor,
     string? AssigneeUserId,
     string? AssigneeDisplayName,
     DateOnly? DueDate,

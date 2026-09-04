@@ -85,7 +85,7 @@ public sealed class IssueService(
         return new IssueDetailDto(
             issue.Id, issue.ProjectId, project.Key, $"{project.Key}-{issue.Number}",
             issue.Title, issue.Description, issue.Type, issue.Status, issue.Priority, issue.StoryPoints,
-            issue.ReporterUserId, Name(issue.ReporterUserId),
+            issue.ReporterUserId, Name(issue.ReporterUserId), Color(issue.ReporterUserId),
             issue.AssigneeUserId, issue.AssigneeUserId is null ? null : Name(issue.AssigneeUserId),
             issue.DueDate,
             issue.SprintId, sprint?.Name,
