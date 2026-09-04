@@ -1,0 +1,127 @@
+@namespace TaskManagement.Web.Components.Layout
+@rendermode InteractiveServer
+@implements IDisposable
+@using TaskManagement.Web.Components.Ui
+@inject TourState Tour
+@inject ToastService Toasts
+@inject ITenantContext Tenant
+@inject IAiAssistant Ai
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+@if (Tour.Loaded && Tour.Active)
+{
+    <div class="fixed inset-0 z-[70]">
+        @if (_rect is null)
+        {
+            <div class="absolute inset-0 bg-black/60"></div>
+        }
+        else
+        {
+            <div class="pointer-events-none absolute rounded-lg ring-2 ring-brand-400 transition-all duration-150" style="@SpotlightStyle"></div>
+        }
+
+        <div class="pointer-events-auto fixed bottom-6 left-1/2 w-[22rem] -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div class="mb-2 flex items-center justify-between text-xs text-slate-400">
+                <span>@(Tour.CurrentIndex + 1) of @ActiveSteps.Count</span>
+                <button type="button" class="hover:text-slate-600 dark:hover:text-slate-200" aria-label="Close tour" @onclick="() => Tour.Close()">
+                    <Icon Name="x-mark" Class="h-4 w-4" />
+                </button>
+            </div>
+            <div class="mb-3 h-1 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                <div class="h-full rounded-full bg-brand-600 transition-all" style="width:@(((Tour.CurrentIndex + 1) * 100 / ActiveSteps.Count))%"></div>
+            </div>
+
+            <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">@CurrentInfo.Title</p>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">@CurrentInfo.Description</p>
+
+            @if (_rect is null && CurrentInfo.PageUrl is { } url)
+            {
+                <div class="mt-3">
+                    <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => Nav.NavigateTo(url)">@CurrentInfo.CtaLabel</Button>
+                </div>
+            }
+
+            <div class="mt-4 flex items-center justify-between">
+                <Button Variant="Button.ButtonVariant.Ghost" Disabled="@(Tour.CurrentIndex == 0)" OnClick="() => Tour.Prev()">Back</Button>
+                <Button OnClick="() => Tour.Next(ActiveSteps.Count)">@(Tour.CurrentIndex + 1 == ActiveSteps.Count ? "Finish" : "Next")</Button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private TourRect? _rect;
+    private int _lastDoneCount;
+
+    private sealed record StepInfo(string Title, string Description, string? Selector, string? PageUrl, string CtaLabel);
+    private sealed record TourRect(double Top, double Left, double Width, double Height);
+
+    private IReadOnlyList<TourStep> ActiveSteps => Ai.IsEnabled
+        ? [TourStep.CreateWorkspace, TourStep.CreateProject, TourStep.AddIssue, TourStep.InviteMember, TourStep.UseAi]
+        : [TourStep.CreateWorkspace, TourStep.CreateProject, TourStep.AddIssue, TourStep.InviteMember];
+
+    private int DoneCount => ActiveSteps.Count(Tour.IsDone);
+
+    private StepInfo CurrentInfo => Info(ActiveSteps[Math.Min(Tour.CurrentIndex, ActiveSteps.Count - 1)]);
+
+    private string SpotlightStyle => _rect is { } r
+        ? $"top:{r.Top - 6}px;left:{r.Left - 6}px;width:{r.Width + 12}px;height:{r.Height + 12}px;box-shadow:0 0 0 9999px rgba(0,0,0,.6);"
+        : "display:none;";
+
+    private StepInfo Info(TourStep step) => step switch
+    {
+        TourStep.CreateWorkspace => new("Create a workspace", "Workspaces hold your projects and team. Click \"New workspace\" to create your first one.", "[data-tour=\"new-workspace-btn\"]", "/", "Go to dashboard"),
+        TourStep.CreateProject => new("Create a project", "Projects organize issues into a board and backlog. Click \"New project\" to set one up.", "[data-tour=\"new-project-btn\"]", Tenant.IsResolved ? $"/{Tenant.Slug}" : "/", "Go to workspace"),
+        TourStep.AddIssue => new("Add an issue", "Track a task, bug, or idea on the board. Click \"Create issue\" to add your first one.", "[data-tour=\"create-issue-btn\"]", Tenant.IsResolved ? $"/{Tenant.Slug}" : "/", "Go to workspace"),
+        TourStep.InviteMember => new("Invite your team", "Bring teammates in to collaborate. Click \"Invite people\" to send an invitation.", "[data-tour=\"invite-people-btn\"]", Tenant.IsResolved ? $"/{Tenant.Slug}/members" : "/", "Go to members"),
+        TourStep.UseAi => new("Ask GAWE AI", "Open any issue and use the Ask GAWE AI card to summarize it, suggest next steps, or answer a question.", "[data-tour=\"ask-ai-section\"]", Tenant.IsResolved ? $"/{Tenant.Slug}" : "/", "Go to workspace"),
+        _ => new("", "", null, null, ""),
+    };
+
+    protected override void OnInitialized()
+    {
+        Tour.Changed += OnChanged;
+        Nav.LocationChanged += OnLocationChanged;
+        _lastDoneCount = DoneCount;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await Tour.LoadAsync();
+    }
+
+    private async void OnChanged()
+    {
+        var count = DoneCount;
+        if (count > _lastDoneCount && count == ActiveSteps.Count)
+            Toasts.Success("You're all set — nice work!");
+        _lastDoneCount = count;
+        await RelocateAsync();
+    }
+
+    private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        if (Tour.Active)
+            await RelocateAsync();
+    }
+
+    private async Task RelocateAsync()
+    {
+        _rect = null;
+        if (!Tour.Active)
+        {
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+        _rect = await JS.InvokeAsync<TourRect?>("tm.tour.locate", CurrentInfo.Selector);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Tour.Changed -= OnChanged;
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+}

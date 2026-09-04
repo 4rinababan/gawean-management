@@ -39,12 +39,13 @@
 </div>
 
 <Toaster />
+<ProductTour />
 
 @* Deliberately plain script + DOM, not a Blazor component: this banner has to work identically on the
    static (non-interactive) auth pages and the interactive app pages this layout wraps, without relying
    on a live circuit to read localStorage back. *@
 <div id="cookie-notice" class="fixed inset-x-0 bottom-0 z-50 hidden border-t border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-lg dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 sm:flex sm:items-center sm:justify-between">
-    <span>This site uses only the cookie needed to keep you signed in — no third-party tracking or advertising cookies.</span>
+    <span>This site uses only the cookies needed to keep you signed in and remember your onboarding progress — no third-party tracking or advertising cookies.</span>
     <button type="button" id="cookie-notice-dismiss" class="mt-2 shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 sm:mt-0 sm:ml-4">Got it</button>
 </div>
 <script>

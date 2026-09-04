@@ -5,12 +5,13 @@
 @inject OrganizationService Organizations
 @inject NavigationManager Nav
 @inject ToastService Toasts
+@inject TourState Tour
 
 <PageTitle>Dashboard</PageTitle>
 
 <PageHeader Title="Your dashboard" Subtitle="Work assigned to you across every workspace.">
     <Actions>
-        <Button Icon="plus" OnClick="() => _showCreate = true">New workspace</Button>
+        <Button Icon="plus" OnClick="() => _showCreate = true" data-tour="new-workspace-btn">New workspace</Button>
     </Actions>
 </PageHeader>
 
@@ -149,6 +150,7 @@ else
         try
         {
             var created = await Organizations.CreateAsync(_form);
+            Tour.MarkDone(TourStep.CreateWorkspace);
             Toasts.Success($"Workspace \"{created.Name}\" created.");
             Nav.NavigateTo($"/{created.Slug}");
         }
