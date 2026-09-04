@@ -91,8 +91,20 @@ public interface IAiAssistant
     bool IsEnabled { get; }
 
     /// <summary>
-    /// Expands a one-line summary into a draft ticket. The returned description is already sanitised;
-    /// everything else is a suggestion the author is expected to review before saving.
+    /// Expands a one-line summary (optionally alongside text extracted from an uploaded spec file) into a
+    /// draft ticket. The returned description is already sanitised; everything else is a suggestion the
+    /// author is expected to review before saving.
     /// </summary>
-    Task<IssueDraft> DraftIssueAsync(string prompt, CancellationToken ct = default);
+    Task<IssueDraft> DraftIssueAsync(string prompt, string? documentContext = null, CancellationToken ct = default);
+}
+
+/// <summary>
+/// Pulls plain text out of an uploaded spec file so it can be handed to <see cref="IAiAssistant"/> as
+/// extra drafting context. Cell/paragraph text only — content drawn as shapes (e.g. an Excel flowchart
+/// made of text boxes) isn't captured.
+/// </summary>
+public interface IDocumentTextExtractor
+{
+    /// <summary>Supported extensions: .xlsx, .pdf, .docx. Throws for anything else.</summary>
+    Task<string> ExtractAsync(Stream content, string fileName, CancellationToken ct = default);
 }

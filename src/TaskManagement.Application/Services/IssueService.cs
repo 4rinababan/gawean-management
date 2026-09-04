@@ -40,6 +40,7 @@ public sealed class IssueService(
         var issue = await db.Issues
             .Include(i => i.Comments)
             .Include(i => i.Attachments)
+            .Include(i => i.Viewers)
             .FirstOrDefaultAsync(i => i.Id == issueId, ct)
             ?? throw NotFoundException.For<Issue>(issueId);
 
@@ -63,6 +64,7 @@ public sealed class IssueService(
                 .Select(v => v!))
             .Append(issue.ReporterUserId)
             .Concat(issue.AssigneeUserId is null ? [] : [issue.AssigneeUserId])
+            .Concat(issue.Viewers.Select(v => v.UserId))
             .Distinct();
         var directory = await users.GetManyAsync(userIds, ct);
 
@@ -83,6 +85,9 @@ public sealed class IssueService(
             activity.Select(a => ActivityFormatter.ToDto(a, Name, sprintNames)).ToList(),
             issue.Attachments.OrderBy(a => a.CreatedAt)
                 .Select(a => new AttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes, a.UploadedByUserId, a.CreatedAt))
+                .ToList(),
+            issue.Viewers
+                .Select(v => new IssueMemberDto(v.UserId, Name(v.UserId), Color(v.UserId)))
                 .ToList());
     }
 
@@ -119,6 +124,16 @@ public sealed class IssueService(
         var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == issueId, ct)
             ?? throw NotFoundException.For<Issue>(issueId);
         var project = await RequireProjectAsync(db, issue.ProjectId, ct);
+
+        // Summary/priority/story points/due date are reserved for whoever reported the issue — everything
+        // else on this shared request (description, type, sprint, assignee) stays open to any editor.
+        var restrictedFieldChanged =
+            request.Title != issue.Title
+            || request.Priority != issue.Priority
+            || request.StoryPoints != issue.StoryPoints
+            || request.DueDate != issue.DueDate;
+        if (restrictedFieldChanged && issue.ReporterUserId != actor)
+            throw new ForbiddenException("Only the reporter can change the summary, priority, story points, or due date.");
 
         issue.Rename(request.Title, actor);
         issue.Describe(sanitizer.Sanitize(request.Description), actor);
@@ -157,6 +172,35 @@ public sealed class IssueService(
         var project = await RequireProjectAsync(db, issue.ProjectId, ct);
 
         issue.Assign(assigneeUserId, actor);
+        await changeProcessor.ProcessAsync(db, issue, project.Key, actor, ct);
+    }
+
+    public async Task AddViewerAsync(Guid issueId, string userId, CancellationToken ct = default)
+    {
+        guard.Require(OrgPermission.EditIssue);
+        var actor = guard.UserId;
+        await using var db = dbf.CreateDbContext();
+
+        var issue = await db.Issues.Include(i => i.Viewers).FirstOrDefaultAsync(i => i.Id == issueId, ct)
+            ?? throw NotFoundException.For<Issue>(issueId);
+        var project = await RequireProjectAsync(db, issue.ProjectId, ct);
+
+        var viewer = issue.AddViewer(userId, actor);
+        db.IssueViewers.Add(viewer); // client-generated ids: force Added rather than EF's key-is-set heuristic
+        await changeProcessor.ProcessAsync(db, issue, project.Key, actor, ct);
+    }
+
+    public async Task RemoveViewerAsync(Guid issueId, string userId, CancellationToken ct = default)
+    {
+        guard.Require(OrgPermission.EditIssue);
+        var actor = guard.UserId;
+        await using var db = dbf.CreateDbContext();
+
+        var issue = await db.Issues.Include(i => i.Viewers).FirstOrDefaultAsync(i => i.Id == issueId, ct)
+            ?? throw NotFoundException.For<Issue>(issueId);
+        var project = await RequireProjectAsync(db, issue.ProjectId, ct);
+
+        issue.RemoveViewer(userId, actor);
         await changeProcessor.ProcessAsync(db, issue, project.Key, actor, ct);
     }
 

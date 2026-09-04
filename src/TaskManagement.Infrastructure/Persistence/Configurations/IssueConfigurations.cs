@@ -34,8 +34,10 @@ public sealed class IssueConfiguration : IEntityTypeConfiguration<Issue>
 
         builder.HasMany(i => i.Comments).WithOne().HasForeignKey(c => c.IssueId).OnDelete(DeleteBehavior.Cascade);
         builder.HasMany(i => i.Attachments).WithOne().HasForeignKey(a => a.IssueId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasMany(i => i.Viewers).WithOne().HasForeignKey(v => v.IssueId).OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(i => i.Comments).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.Navigation(i => i.Attachments).UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.Navigation(i => i.Viewers).UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }
 
@@ -62,6 +64,17 @@ public sealed class AttachmentConfiguration : IEntityTypeConfiguration<Attachmen
         builder.Property(a => a.StorageKey).HasMaxLength(200).IsRequired();
         builder.Property(a => a.UploadedByUserId).HasMaxLength(450).IsRequired();
         builder.HasIndex(a => a.IssueId);
+    }
+}
+
+public sealed class IssueViewerConfiguration : IEntityTypeConfiguration<IssueViewer>
+{
+    public void Configure(EntityTypeBuilder<IssueViewer> builder)
+    {
+        builder.ToTable("issue_viewers");
+        builder.HasKey(v => v.Id);
+        builder.Property(v => v.UserId).HasMaxLength(450).IsRequired();
+        builder.HasIndex(v => new { v.IssueId, v.UserId }).IsUnique();
     }
 }
 

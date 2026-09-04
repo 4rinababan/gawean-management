@@ -24,6 +24,7 @@ internal static partial class ActivityFormatter
         [nameof(Issue.DueDate)] = "due date",
         [nameof(Issue.SprintId)] = "sprint",
         [nameof(Comment)] = "comment",
+        ["Viewer"] = "viewer",
     };
 
     public static ActivityDto ToDto(
@@ -55,7 +56,7 @@ internal static partial class ActivityFormatter
 
         return field switch
         {
-            nameof(Issue.AssigneeUserId) => displayName(value),
+            nameof(Issue.AssigneeUserId) or "Viewer" => displayName(value),
             nameof(Issue.SprintId) => Guid.TryParse(value, out var id)
                 ? sprintNames.GetValueOrDefault(id, "a sprint")
                 : value,

@@ -1,8 +1,10 @@
 @namespace TaskManagement.Web.Components.Pages.App
 @inject IssueService Issues
+@inject AttachmentService Attachments
 @inject OrganizationService Organizations
 @inject ToastService Toasts
 @inject IAiAssistant Ai
+@inject IDocumentTextExtractor Extractor
 
 <Modal Open="Open" OpenChanged="OpenChanged" Title="Create issue">
     @if (Ai.IsEnabled)
@@ -16,9 +18,27 @@
                        @onkeydown="OnPromptKeyDown" disabled="@_drafting"
                        placeholder="e.g. user tidak bisa upload attachment lebih dari 10MB di Safari" />
                 <Button Variant="Button.ButtonVariant.Secondary" OnClick="DraftAsync"
-                        Loading="_drafting" Disabled="@(string.IsNullOrWhiteSpace(_aiPrompt))">
+                        Loading="_drafting" Disabled="@(string.IsNullOrWhiteSpace(_aiPrompt) && _pendingFileBytes is null)">
                     <Icon Name="sparkles" Class="h-4 w-4" /> Draft
                 </Button>
+            </div>
+            <div class="mt-2 flex items-center gap-2">
+                @if (_pendingFileName is null)
+                {
+                    <label class="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-brand-700 hover:underline dark:text-brand-300">
+                        <Icon Name="paper-clip" Class="h-3.5 w-3.5" />
+                        @(_extracting ? "Reading file…" : "Attach a spec file (.xlsx, .pdf, .docx)")
+                        <InputFile OnChange="OnFileSelected" class="sr-only" disabled="@_extracting" accept=".xlsx,.pdf,.docx" />
+                    </label>
+                }
+                else
+                {
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-brand-50 py-0.5 pl-2 pr-1 text-xs font-medium text-brand-800 dark:bg-brand-900/50 dark:text-brand-100">
+                        <Icon Name="paper-clip" Class="h-3.5 w-3.5" /> @_pendingFileName
+                        <button type="button" class="rounded-full px-1 leading-none text-brand-500 hover:bg-brand-100 hover:text-brand-800 dark:hover:bg-brand-800"
+                                title="Remove file" aria-label="Remove file" @onclick="RemoveFile">✕</button>
+                    </span>
+                }
             </div>
             <p class="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
                 Fills the fields below with a suggestion. Review it before creating — the model can be wrong.
@@ -86,6 +106,11 @@
     private bool _busy;
     private string? _aiPrompt;
     private bool _drafting;
+    private bool _extracting;
+    private string? _documentContext;
+    private string? _pendingFileName;
+    private string? _pendingFileContentType;
+    private byte[]? _pendingFileBytes;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -106,17 +131,55 @@
     }
 
     /// <summary>
+    /// Reads the file once and keeps its bytes around: the same upload is used both to extract text for
+    /// the AI draft now and, if the issue is actually created, to attach the file to it afterwards.
+    /// </summary>
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        _extracting = true;
+        try
+        {
+            await using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            _pendingFileBytes = ms.ToArray();
+            _pendingFileName = file.Name;
+            _pendingFileContentType = file.ContentType;
+
+            _documentContext = await Extractor.ExtractAsync(new MemoryStream(_pendingFileBytes), file.Name);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error(ex.Message);
+            RemoveFile();
+        }
+        finally
+        {
+            _extracting = false;
+        }
+    }
+
+    private void RemoveFile()
+    {
+        _pendingFileBytes = null;
+        _pendingFileName = null;
+        _pendingFileContentType = null;
+        _documentContext = null;
+    }
+
+    /// <summary>
     /// Fills the form from a model suggestion. Deliberately does not create anything: the author still
     /// reviews every field and presses Create, so a bad draft costs a moment rather than a bad ticket.
     /// </summary>
     private async Task DraftAsync()
     {
-        if (_drafting || string.IsNullOrWhiteSpace(_aiPrompt)) return;
+        if (_drafting || (string.IsNullOrWhiteSpace(_aiPrompt) && _pendingFileBytes is null)) return;
 
         _drafting = true;
         try
         {
-            var draft = await Ai.DraftIssueAsync(_aiPrompt);
+            var draft = await Ai.DraftIssueAsync(_aiPrompt ?? "", _documentContext);
 
             _form.Title = draft.Title;
             _form.Description = draft.Description;
@@ -142,8 +205,24 @@
         try
         {
             var id = await Issues.CreateAsync(_form);
+
+            if (_pendingFileBytes is not null)
+            {
+                // The draft succeeded already; a failed attach shouldn't stop the issue from being created.
+                try
+                {
+                    await Attachments.UploadAsync(id, new MemoryStream(_pendingFileBytes), _pendingFileName!, _pendingFileContentType!, _pendingFileBytes.Length);
+                }
+                catch (Exception ex)
+                {
+                    Toasts.Warning($"Issue created, but the file couldn't be attached: {ex.Message}");
+                }
+            }
+
             Toasts.Success("Issue created.");
             _form = new CreateIssueRequest { ProjectId = ProjectId, SprintId = SprintId };
+            RemoveFile();
+            _aiPrompt = null;
             await OpenChanged.InvokeAsync(false);
             await OnCreated.InvokeAsync(id);
         }

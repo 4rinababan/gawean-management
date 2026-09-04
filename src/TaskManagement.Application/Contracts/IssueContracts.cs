@@ -78,7 +78,11 @@ public sealed record IssueDetailDto(
     DateTimeOffset UpdatedAt,
     IReadOnlyList<CommentDto> Comments,
     IReadOnlyList<ActivityDto> Activity,
-    IReadOnlyList<AttachmentDto> Attachments);
+    IReadOnlyList<AttachmentDto> Attachments,
+    IReadOnlyList<IssueMemberDto> Viewers);
+
+/// <summary>A person referenced on an issue (currently: a viewer) resolved for display.</summary>
+public sealed record IssueMemberDto(string UserId, string DisplayName, string AvatarColor);
 
 public sealed record CommentDto(Guid Id, string AuthorUserId, string AuthorDisplayName, string AuthorAvatarColor, string Body, DateTimeOffset CreatedAt, DateTimeOffset? EditedAt);
 

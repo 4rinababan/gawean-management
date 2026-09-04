@@ -9,6 +9,7 @@
 @inject SprintService SprintSvc
 @inject ProjectService Projects
 @inject ToastService Toasts
+@inject ICurrentUser CurrentUser
 
 <PageTitle>@(_issue?.Reference ?? "Issue")</PageTitle>
 
@@ -36,7 +37,7 @@ else
         <div class="space-y-6">
             <Card>
                 <Field Label="Summary">
-                    <input class="tm-input" @bind="_edit.Title" @bind:event="oninput" disabled="@(!CanEdit)" />
+                    <input class="tm-input" @bind="_edit.Title" @bind:event="oninput" disabled="@(!CanEditReporterFields)" />
                 </Field>
                 @* Descriptions carry queries and diagrams, so the default is the rendered document —
                    code highlighted, ERDs drawn — and editing is an explicit mode. *@
@@ -142,8 +143,13 @@ else
                         <UserPicker Members="_members" Value="@_issue.AssigneeUserId" ValueChanged="ChangeAssignee" />
                     </div>
                     <div>
+                        <p class="tm-label">Viewers</p>
+                        <UserMultiPicker Members="_members" Values="@_issue.Viewers.Select(v => v.UserId).ToList()"
+                                         OnAdd="AddViewer" OnRemove="RemoveViewer" Placeholder="Add viewers" />
+                    </div>
+                    <div>
                         <p class="tm-label">Priority</p>
-                        <select class="tm-select" disabled="@(!CanEdit)" @onchange="e => SaveField(() => _edit.Priority = Enum.Parse<IssuePriority>(e.Value!.ToString()!))">
+                        <select class="tm-select" disabled="@(!CanEditReporterFields)" @onchange="e => SaveField(() => _edit.Priority = Enum.Parse<IssuePriority>(e.Value!.ToString()!))">
                             @foreach (var p in Enum.GetValues<IssuePriority>())
                             {
                                 <option value="@p" selected="@(p == _issue.Priority)">@p</option>
@@ -161,7 +167,7 @@ else
                     </div>
                     <div>
                         <p class="tm-label">Due date</p>
-                        <input type="date" class="tm-input" value="@_issue.DueDate?.ToString("yyyy-MM-dd")" disabled="@(!CanEdit)"
+                        <input type="date" class="tm-input" value="@_issue.DueDate?.ToString("yyyy-MM-dd")" disabled="@(!CanEditReporterFields)"
                                @onchange="e => SaveField(() => _edit.DueDate = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
                         @if (_issue.DueDate is { } due && _issue.Status != IssueStatus.Done && due < DateOnly.FromDateTime(DateTime.Today))
                         {
@@ -170,7 +176,7 @@ else
                     </div>
                     <div>
                         <p class="tm-label">Story points</p>
-                        <input type="number" class="tm-input" value="@_issue.StoryPoints" disabled="@(!CanEdit)"
+                        <input type="number" class="tm-input" value="@_issue.StoryPoints" disabled="@(!CanEditReporterFields)"
                                @onchange="e => SaveField(() => _edit.StoryPoints = int.TryParse(e.Value?.ToString(), out var v) ? v : null)" />
                     </div>
                     <div>
@@ -253,6 +259,9 @@ else
     private bool CanEdit => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.EditIssue);
     private bool CanComment => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.CommentOnIssue);
     private bool CanDelete => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.DeleteIssue);
+
+    /// <summary>Summary/priority/story points/due date are reserved for whoever reported the issue.</summary>
+    private bool CanEditReporterFields => CanEdit && _issue?.ReporterUserId == CurrentUser.UserId;
 
     protected override async Task OnTenantReadyAsync()
     {
@@ -380,6 +389,28 @@ else
         try
         {
             await Issues.AssignAsync(IssueId, userId);
+            await LoadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+    }
+
+    private async Task AddViewer(string userId)
+    {
+        if (!CanEdit) return;
+        try
+        {
+            await Issues.AddViewerAsync(IssueId, userId);
+            await LoadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+    }
+
+    private async Task RemoveViewer(string userId)
+    {
+        if (!CanEdit) return;
+        try
+        {
+            await Issues.RemoveViewerAsync(IssueId, userId);
             await LoadAsync();
         }
         catch (Exception ex) { Toasts.Error(ex.Message); }
