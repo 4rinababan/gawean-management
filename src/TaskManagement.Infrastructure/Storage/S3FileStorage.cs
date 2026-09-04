@@ -73,6 +73,11 @@ public sealed class S3FileStorage : IFileStorage
             InputStream = content,
             ContentType = contentType,
             AutoCloseStream = false, // the caller owns the stream's lifetime, same as LocalFileStorage
+            // Defaults to true, which signs the upload as "STREAMING-AWS4-HMAC-SHA256-PAYLOAD" chunked
+            // encoding — R2 doesn't implement that either, only the previous fix's trailer variant of it.
+            // Every attachment is already buffered into a MemoryStream before this is called, so the
+            // stream's Length is known and a single signed request works fine without chunking.
+            UseChunkEncoding = false,
         }, ct);
 
         return key;
