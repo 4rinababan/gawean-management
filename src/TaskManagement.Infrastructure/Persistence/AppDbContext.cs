@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaskManagement.Application.Abstractions;
+using TaskManagement.Domain.Automation;
 using TaskManagement.Domain.Common;
 using TaskManagement.Domain.Issues;
 using TaskManagement.Domain.Notifications;
@@ -35,6 +36,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
     public DbSet<Sprint> Sprints => Set<Sprint>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<AutomationRule> AutomationRules => Set<AutomationRule>();
 
     public IQueryable<TEntity> IgnoringTenantFilter<TEntity>() where TEntity : class
         => Set<TEntity>().IgnoreQueryFilters();
@@ -71,6 +73,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
         builder.Entity<ActivityLog>().HasQueryFilter(e => e.OrganizationId == TenantId);
         builder.Entity<Sprint>().HasQueryFilter(e => e.OrganizationId == TenantId);
         builder.Entity<Notification>().HasQueryFilter(e => e.OrganizationId == TenantId);
+        builder.Entity<AutomationRule>().HasQueryFilter(e => e.OrganizationId == TenantId);
     }
 
     public override int SaveChanges()

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using TaskManagement.Domain.Automation;
 using TaskManagement.Domain.Issues;
 using TaskManagement.Domain.Notifications;
 using TaskManagement.Domain.Organizations;
@@ -36,6 +37,7 @@ public interface IAppDbContext : IAsyncDisposable
     DbSet<ActivityLog> ActivityLogs { get; }
     DbSet<Sprint> Sprints { get; }
     DbSet<Notification> Notifications { get; }
+    DbSet<AutomationRule> AutomationRules { get; }
 
     /// <summary>Runs the given query with all tenant query filters disabled — for cross-tenant lookups such as redeeming an invitation.</summary>
     IQueryable<TEntity> IgnoringTenantFilter<TEntity>() where TEntity : class;

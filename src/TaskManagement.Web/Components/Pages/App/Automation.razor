@@ -1,0 +1,347 @@
+@page "/{Slug}/projects/{Key}/automation"
+@using TaskManagement.Domain.Automation
+@rendermode InteractiveServer
+@layout OrgLayout
+@attribute [Authorize]
+@inherits OrgPageBase
+@inject ProjectService Projects
+@inject AutomationRuleService Automations
+@inject OrganizationService Organizations
+@inject ToastService Toasts
+
+<PageTitle>@Key automation</PageTitle>
+
+@if (_project is null)
+{
+    <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+}
+else
+{
+    <PageHeader Title="@($"{_project.Name} · Automation")" Subtitle="When something happens on an issue, do something automatically.">
+        <Actions>
+            @if (CanManage)
+            {
+                <Button Icon="plus" OnClick="BeginCreate">New rule</Button>
+            }
+        </Actions>
+    </PageHeader>
+
+    <ProjectTabs Slug="@Slug" Key="@Key" Current="automation" />
+
+    @if (_rules is null)
+    {
+        <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+    }
+    else if (_rules.Count == 0)
+    {
+        <EmptyState Icon="sparkles" Title="No automation rules yet"
+                    Description="Automate repetitive housekeeping — e.g. clear the assignee when an issue is marked Done." />
+    }
+    else
+    {
+        <div class="space-y-3">
+            @foreach (var r in _rules)
+            {
+                <Card @key="r.Id">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-semibold text-slate-900 dark:text-slate-100">@r.Name</h3>
+                                <Badge Color="@(r.Enabled ? Badge.BadgeColor.Green : Badge.BadgeColor.Slate)">@(r.Enabled ? "On" : "Off")</Badge>
+                            </div>
+                            <p class="mt-1 text-sm text-slate-500">@TriggerLabel(r.TriggerType, r.TriggerValue) → @string.Join(", ", r.Actions.Select(ActionSummary))</p>
+                            <p class="mt-1 text-xs text-slate-400">Created by @r.CreatedByDisplayName</p>
+                        </div>
+                        @if (CanManage)
+                        {
+                            <div class="flex shrink-0 gap-2">
+                                <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => ToggleAsync(r)">@(r.Enabled ? "Disable" : "Enable")</Button>
+                                <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => BeginEdit(r)">Edit</Button>
+                                <Button Variant="Button.ButtonVariant.Danger" Icon="trash" OnClick="() => DeleteAsync(r)" />
+                            </div>
+                        }
+                    </div>
+                </Card>
+            }
+        </div>
+    }
+
+    <Modal Open="_showForm" OpenChanged="v => _showForm = v" Title="@(_editingId is null ? "New rule" : "Edit rule")" Width="lg">
+        <EditForm Model="_form" OnValidSubmit="SaveAsync" OnInvalidSubmit="WarnInvalid">
+            <FluentValidationValidator />
+            <div class="space-y-4">
+                <Field Label="Name" Required>
+                    <InputText @bind-Value="_form.Name" class="tm-input" placeholder="Clear assignee when done" />
+                    <ValidationMessage For="() => _form.Name" class="mt-1 block text-xs text-rose-500" />
+                </Field>
+
+                <Field Label="When" Required>
+                    <select class="tm-select" @bind="_form.TriggerType">
+                        @foreach (var t in Enum.GetValues<AutomationTriggerType>())
+                        {
+                            <option value="@t">@TriggerLabel(t, null)</option>
+                        }
+                    </select>
+                </Field>
+
+                @if (_form.TriggerType == AutomationTriggerType.StatusChanged)
+                {
+                    <Field Label="Target status" Required>
+                        <select class="tm-select" @bind="_form.TriggerValue">
+                            <option value="">Select…</option>
+                            @foreach (var s in Enum.GetValues<IssueStatus>())
+                            {
+                                <option value="@s">@s</option>
+                            }
+                        </select>
+                    </Field>
+                }
+                else if (_form.TriggerType == AutomationTriggerType.PriorityChanged)
+                {
+                    <Field Label="Target priority" Required>
+                        <select class="tm-select" @bind="_form.TriggerValue">
+                            <option value="">Select…</option>
+                            @foreach (var p in Enum.GetValues<IssuePriority>())
+                            {
+                                <option value="@p">@p</option>
+                            }
+                        </select>
+                    </Field>
+                }
+
+                <div>
+                    <label class="tm-label">Then</label>
+                    <div class="space-y-2">
+                        @for (var i = 0; i < _form.Actions.Count; i++)
+                        {
+                            var idx = i;
+                            var action = _form.Actions[idx];
+                            <div class="flex items-start gap-2 rounded-lg border border-slate-200 p-2 dark:border-slate-700">
+                                <select class="tm-select" value="@action.Type" @onchange="e => ChangeActionType(idx, e.Value)">
+                                    @foreach (var t in Enum.GetValues<AutomationActionType>())
+                                    {
+                                        <option value="@t">@ActionLabel(t)</option>
+                                    }
+                                </select>
+
+                                <div class="min-w-0 flex-1">
+                                    @if (action.Type == AutomationActionType.SetStatus)
+                                    {
+                                        <select class="tm-select" value="@action.Value" @onchange="e => SetActionValue(idx, e.Value?.ToString())">
+                                            <option value="">Select…</option>
+                                            @foreach (var s in Enum.GetValues<IssueStatus>())
+                                            {
+                                                <option value="@s">@s</option>
+                                            }
+                                        </select>
+                                    }
+                                    else if (action.Type == AutomationActionType.SetPriority)
+                                    {
+                                        <select class="tm-select" value="@action.Value" @onchange="e => SetActionValue(idx, e.Value?.ToString())">
+                                            <option value="">Select…</option>
+                                            @foreach (var p in Enum.GetValues<IssuePriority>())
+                                            {
+                                                <option value="@p">@p</option>
+                                            }
+                                        </select>
+                                    }
+                                    else if (action.Type == AutomationActionType.SetAssignee)
+                                    {
+                                        <UserPicker Members="_members" Value="@action.Value" ValueChanged="v => SetActionValue(idx, v)" Placeholder="Unassigned" />
+                                    }
+                                    else if (action.Type == AutomationActionType.Notify)
+                                    {
+                                        <select class="tm-select" value="@action.Value" @onchange="e => SetActionValue(idx, e.Value?.ToString())">
+                                            <option value="">Select…</option>
+                                            <option value="assignee">The assignee</option>
+                                            <option value="reporter">The reporter</option>
+                                            @foreach (var m in _members)
+                                            {
+                                                <option value="@m.UserId">@m.DisplayName</option>
+                                            }
+                                        </select>
+                                    }
+                                    else if (action.Type == AutomationActionType.AddComment)
+                                    {
+                                        <input class="tm-input" placeholder="Comment text" value="@action.Value"
+                                               @onchange="e => SetActionValue(idx, e.Value?.ToString())" />
+                                    }
+                                </div>
+
+                                <button type="button" class="mt-2 text-slate-400 hover:text-rose-600" title="Remove action" @onclick="() => RemoveAction(idx)">
+                                    <Icon Name="x-mark" Class="h-4 w-4" />
+                                </button>
+                            </div>
+                        }
+                    </div>
+                    <Button Variant="Button.ButtonVariant.Ghost" Class="mt-2" Icon="plus" OnClick="AddAction">Add action</Button>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => _showForm = false">Cancel</Button>
+                <Button Type="submit" Loading="_busy">Save</Button>
+            </div>
+        </EditForm>
+    </Modal>
+}
+
+@code {
+    [Parameter] public string Key { get; set; } = "";
+
+    private ProjectDto? _project;
+    private IReadOnlyList<AutomationRuleDto>? _rules;
+    private IReadOnlyList<OrganizationMemberDto> _members = [];
+    private bool _showForm;
+    private bool _busy;
+    private Guid? _editingId;
+    private CreateAutomationRuleRequest _form = new();
+
+    private bool CanManage => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.ManageProjects);
+
+    protected override async Task OnTenantReadyAsync()
+    {
+        _project = await Projects.GetByKeyAsync(Key);
+        _members = await Organizations.GetMembersAsync();
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        if (_project is null) return;
+        _rules = await Automations.GetForProjectAsync(_project.Id);
+        StateHasChanged();
+    }
+
+    private void WarnInvalid() => Toasts.Warning("Please fix the highlighted fields.");
+
+    private void BeginCreate()
+    {
+        _editingId = null;
+        _form = new CreateAutomationRuleRequest { ProjectId = _project!.Id };
+        AddAction();
+        _showForm = true;
+    }
+
+    private void BeginEdit(AutomationRuleDto r)
+    {
+        _editingId = r.Id;
+        _form = new CreateAutomationRuleRequest
+        {
+            ProjectId = r.ProjectId,
+            Name = r.Name,
+            TriggerType = r.TriggerType,
+            TriggerValue = r.TriggerValue,
+            Actions = r.Actions.Select(a => new AutomationActionDto(a.Type, a.Value)).ToList(),
+        };
+        _showForm = true;
+    }
+
+    private void AddAction() => _form.Actions.Add(new AutomationActionDto(AutomationActionType.SetStatus, null));
+
+    private void RemoveAction(int index) => _form.Actions.RemoveAt(index);
+
+    private void ChangeActionType(int index, object? value)
+    {
+        if (Enum.TryParse<AutomationActionType>(value?.ToString(), out var type))
+        {
+            _form.Actions[index].Type = type;
+            _form.Actions[index].Value = null;
+        }
+    }
+
+    private void SetActionValue(int index, string? value) => _form.Actions[index].Value = value;
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        try
+        {
+            if (_editingId is { } id)
+            {
+                await Automations.UpdateAsync(id, new UpdateAutomationRuleRequest
+                {
+                    Name = _form.Name,
+                    TriggerType = _form.TriggerType,
+                    TriggerValue = _form.TriggerValue,
+                    Actions = _form.Actions,
+                });
+                Toasts.Success("Rule updated.");
+            }
+            else
+            {
+                await Automations.CreateAsync(new CreateAutomationRuleRequest
+                {
+                    ProjectId = _form.ProjectId,
+                    Name = _form.Name,
+                    TriggerType = _form.TriggerType,
+                    TriggerValue = _form.TriggerValue,
+                    Actions = _form.Actions,
+                });
+                Toasts.Success("Rule created.");
+            }
+            _showForm = false;
+            await ReloadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _busy = false; }
+    }
+
+    private async Task ToggleAsync(AutomationRuleDto r)
+    {
+        try
+        {
+            await Automations.SetEnabledAsync(r.Id, !r.Enabled);
+            await ReloadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+    }
+
+    private async Task DeleteAsync(AutomationRuleDto r)
+    {
+        try
+        {
+            await Automations.DeleteAsync(r.Id);
+            Toasts.Success("Rule deleted.");
+            await ReloadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+    }
+
+    private static string TriggerLabel(AutomationTriggerType type, string? value) => type switch
+    {
+        AutomationTriggerType.IssueCreated => "When an issue is created",
+        AutomationTriggerType.StatusChanged => $"When status changes to {value ?? "…"}",
+        AutomationTriggerType.AssigneeChanged => "When the assignee changes",
+        AutomationTriggerType.PriorityChanged => $"When priority changes to {value ?? "…"}",
+        _ => type.ToString(),
+    };
+
+    private static string ActionLabel(AutomationActionType type) => type switch
+    {
+        AutomationActionType.SetStatus => "Set status",
+        AutomationActionType.SetAssignee => "Set assignee",
+        AutomationActionType.AddComment => "Add a comment",
+        AutomationActionType.SetPriority => "Set priority",
+        AutomationActionType.Notify => "Notify",
+        _ => type.ToString(),
+    };
+
+    private string ActionSummary(AutomationActionDto a) => a.Type switch
+    {
+        AutomationActionType.SetStatus => $"set status to {a.Value}",
+        AutomationActionType.SetAssignee => string.IsNullOrEmpty(a.Value) ? "clear the assignee" : $"assign to {DisplayName(a.Value)}",
+        AutomationActionType.AddComment => "add a comment",
+        AutomationActionType.SetPriority => $"set priority to {a.Value}",
+        AutomationActionType.Notify => $"notify {NotifyTargetLabel(a.Value)}",
+        _ => a.Type.ToString(),
+    };
+
+    private string NotifyTargetLabel(string? value) => value switch
+    {
+        "assignee" => "the assignee",
+        "reporter" => "the reporter",
+        _ => DisplayName(value),
+    };
+
+    private string DisplayName(string? userId) => _members.FirstOrDefault(m => m.UserId == userId)?.DisplayName ?? "someone";
+}

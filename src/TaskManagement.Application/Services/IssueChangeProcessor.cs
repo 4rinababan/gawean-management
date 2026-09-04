@@ -16,25 +16,51 @@ public sealed class IssueChangeProcessor(
     IEmailSender email,
     INotificationRealtime realtime,
     ITenantContext tenant,
-    IAppUrls urls)
+    IAppUrls urls,
+    AutomationEngine automation)
 {
-    /// <summary>Consumes the aggregate's queued changes on the caller's unit of work, then commits it.</summary>
-    public async Task ProcessAsync(IAppDbContext db, Issue issue, string projectKey, string actorUserId, CancellationToken ct = default)
+    /// <summary>
+    /// Consumes the aggregate's queued changes on the caller's unit of work, then commits it. Also runs
+    /// automation rules for the issue's project against those same changes (unless this call is itself
+    /// processing an automation-caused edit — see <see cref="AutomationEngine.MatchAndApplyAsync"/> for why
+    /// that alone is enough to prevent rules from cascading into each other). Pass <paramref name="created"/>
+    /// when this is a brand-new issue: a bare-title create queues no field changes at all, so "issue
+    /// created" automation triggers need this explicit signal rather than a diff match.
+    /// </summary>
+    public async Task ProcessAsync(
+        IAppDbContext db, Issue issue, string projectKey, string actorUserId,
+        CancellationToken ct = default, bool created = false)
     {
         var changes = issue.DequeueChanges();
-        if (changes.Count == 0)
-        {
-            // No field-level changes to log, but the caller may still have pending inserts/updates.
-            await db.SaveChangesAsync(ct);
-            return;
-        }
+        var queued = new Dictionary<string, Notification>();
 
+        if (changes.Count > 0)
+            await RecordAsync(db, issue, projectKey, actorUserId, changes, queued, ct);
+
+        var fired = await automation.MatchAndApplyAsync(db, issue, changes, created, queued, ct);
+        foreach (var (rule, ruleChanges) in fired)
+            await RecordAsync(db, issue, projectKey, rule.CreatedByUserId, ruleChanges, queued, ct);
+
+        foreach (var notification in queued.Values)
+            db.Notifications.Add(notification);
+
+        await db.SaveChangesAsync(ct);
+
+        foreach (var recipient in queued.Keys)
+            await realtime.NotifyAsync(recipient, ct);
+    }
+
+    /// <summary>Writes one <see cref="ActivityLog"/> row per change and queues the notifications it implies.
+    /// Called once for the changes a real edit produced, and again (with the rule's creator as actor) for
+    /// each automation rule that fired from them — both share the same <paramref name="queued"/> batch so
+    /// everything is saved and pushed together at the end of <see cref="ProcessAsync"/>.</summary>
+    private async Task RecordAsync(
+        IAppDbContext db, Issue issue, string projectKey, string actorUserId,
+        IReadOnlyCollection<IssueChange> changes, Dictionary<string, Notification> queued, CancellationToken ct)
+    {
         var reference = $"{projectKey}-{issue.Number}";
         var issueUrl = urls.Issue(tenant.Slug, issue.Id);
         var actorName = (await users.GetAsync(actorUserId, ct))?.DisplayName ?? "Someone";
-
-        // recipient -> the single most relevant notification for this operation
-        var queued = new Dictionary<string, Notification>();
 
         void Queue(string? userId, NotificationType type, string message)
         {
@@ -73,14 +99,6 @@ public sealed class IssueChangeProcessor(
                     break;
             }
         }
-
-        foreach (var notification in queued.Values)
-            db.Notifications.Add(notification);
-
-        await db.SaveChangesAsync(ct);
-
-        foreach (var recipient in queued.Keys)
-            await realtime.NotifyAsync(recipient, ct);
     }
 
     private async Task SendAssignmentEmailAsync(string userId, string reference, string title, string url, string actorName, CancellationToken ct)
