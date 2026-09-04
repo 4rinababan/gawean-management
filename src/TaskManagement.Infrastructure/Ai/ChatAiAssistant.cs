@@ -62,17 +62,23 @@ public sealed class ChatAiAssistant : IAiAssistant
     private readonly HttpClient _http;
     private readonly AiOptions _options;
     private readonly IHtmlSanitizer _sanitizer;
+    private readonly ICurrentUser _currentUser;
+    private readonly IAiRateLimiter _rateLimiter;
     private readonly ILogger<ChatAiAssistant> _logger;
 
     public ChatAiAssistant(
         HttpClient http,
         IOptions<AiOptions> options,
         IHtmlSanitizer sanitizer,
+        ICurrentUser currentUser,
+        IAiRateLimiter rateLimiter,
         ILogger<ChatAiAssistant> logger)
     {
         _http = http;
         _options = options.Value;
         _sanitizer = sanitizer;
+        _currentUser = currentUser;
+        _rateLimiter = rateLimiter;
         _logger = logger;
     }
 
@@ -120,6 +126,11 @@ public sealed class ChatAiAssistant : IAiAssistant
     /// <summary>Sends a system + user message and returns the model's raw text reply.</summary>
     private async Task<string> CompleteAsync(string systemPrompt, string userMessage, CancellationToken ct)
     {
+        if (!_rateLimiter.TryAcquire(_currentUser.RequireUserId()))
+        {
+            throw new AiAssistantException("You've hit the AI usage limit for this hour. Try again later.");
+        }
+
         var request = new ChatRequest(
             _options.Model,
             [new ChatMessage("system", systemPrompt), new ChatMessage("user", userMessage)],

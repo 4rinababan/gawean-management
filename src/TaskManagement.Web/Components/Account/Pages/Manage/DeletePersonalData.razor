@@ -8,6 +8,7 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<DeletePersonalData> Logger
+@inject TaskManagement.Application.Services.OrganizationService Organizations
 
 <PageTitle>Delete Personal Data</PageTitle>
 
@@ -72,6 +73,14 @@
         if (requirePassword && !await UserManager.CheckPasswordAsync(user, Input.Password))
         {
             message = "Error: Incorrect password.";
+            return;
+        }
+
+        var soleAdminOrgs = await Organizations.GetOrganizationsRequiringAdminHandoffAsync();
+        if (soleAdminOrgs.Count > 0)
+        {
+            message = $"Error: You're the only admin of {string.Join(", ", soleAdminOrgs)}. " +
+                "Promote another member to admin, or delete the workspace, before deleting your account.";
             return;
         }
 

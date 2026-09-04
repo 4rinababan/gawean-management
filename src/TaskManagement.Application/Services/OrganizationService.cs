@@ -39,6 +39,36 @@ public sealed class OrganizationService(
             .ToList();
     }
 
+    /// <summary>
+    /// Organizations where the current user is the only Admin — must be resolved (promote a co-admin,
+    /// or delete/transfer the org) before their account can be deleted, or the org would be orphaned.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> GetOrganizationsRequiringAdminHandoffAsync(CancellationToken ct = default)
+    {
+        var userId = currentUser.RequireUserId();
+        await using var db = dbf.CreateDbContext();
+
+        var adminOrgIds = await db.IgnoringTenantFilter<OrganizationMember>()
+            .Where(m => m.UserId == userId && m.Role == OrgRole.Admin)
+            .Select(m => m.OrganizationId)
+            .ToListAsync(ct);
+        if (adminOrgIds.Count == 0) return [];
+
+        var orgsWithAnotherAdmin = await db.IgnoringTenantFilter<OrganizationMember>()
+            .Where(m => adminOrgIds.Contains(m.OrganizationId) && m.Role == OrgRole.Admin && m.UserId != userId)
+            .Select(m => m.OrganizationId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var soleAdminOrgIds = adminOrgIds.Except(orgsWithAnotherAdmin).ToList();
+        if (soleAdminOrgIds.Count == 0) return [];
+
+        return await db.IgnoringTenantFilter<Organization>()
+            .Where(o => soleAdminOrgIds.Contains(o.Id))
+            .Select(o => o.Name)
+            .ToListAsync(ct);
+    }
+
     public async Task<OrganizationDto> CreateAsync(CreateOrganizationRequest request, CancellationToken ct = default)
     {
         var userId = currentUser.RequireUserId();

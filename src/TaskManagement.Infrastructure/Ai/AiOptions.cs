@@ -29,6 +29,9 @@ public sealed class AiOptions
     /// <summary>Model calls are slow; this bounds how long a user can be left waiting.</summary>
     public int TimeoutSeconds { get; set; } = 60;
 
+    /// <summary>Per-user cap on AI calls per rolling hour — the endpoint is a paid external API.</summary>
+    public int RateLimitPerHour { get; set; } = 30;
+
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(Endpoint)
         && !string.IsNullOrWhiteSpace(ApiKey)

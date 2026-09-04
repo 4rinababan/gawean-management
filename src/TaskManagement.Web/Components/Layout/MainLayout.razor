@@ -30,9 +30,38 @@
     <main class="tm-shell py-6 sm:py-8">
         @Body
     </main>
+
+    <footer class="tm-shell flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200 py-6 text-xs text-slate-400 dark:border-slate-800">
+        <span>&copy; @DateTime.UtcNow.Year GaweAn</span>
+        <a href="/legal/terms" class="hover:text-slate-600 dark:hover:text-slate-300">Terms of Service</a>
+        <a href="/legal/privacy" class="hover:text-slate-600 dark:hover:text-slate-300">Privacy Policy</a>
+    </footer>
 </div>
 
 <Toaster />
+
+@* Deliberately plain script + DOM, not a Blazor component: this banner has to work identically on the
+   static (non-interactive) auth pages and the interactive app pages this layout wraps, without relying
+   on a live circuit to read localStorage back. *@
+<div id="cookie-notice" class="fixed inset-x-0 bottom-0 z-50 hidden border-t border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-lg dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 sm:flex sm:items-center sm:justify-between">
+    <span>This site uses only the cookie needed to keep you signed in — no third-party tracking or advertising cookies.</span>
+    <button type="button" id="cookie-notice-dismiss" class="mt-2 shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 sm:mt-0 sm:ml-4">Got it</button>
+</div>
+<script>
+    (function () {
+        try {
+            if (localStorage.getItem('cookie-notice-dismissed') === '1') return;
+        } catch (e) { return; }
+        var el = document.getElementById('cookie-notice');
+        var btn = document.getElementById('cookie-notice-dismiss');
+        if (!el || !btn) return;
+        el.classList.remove('hidden');
+        btn.addEventListener('click', function () {
+            try { localStorage.setItem('cookie-notice-dismissed', '1'); } catch (e) { /* ignore */ }
+            el.classList.add('hidden');
+        });
+    })();
+</script>
 
 <div id="blazor-error-ui" class="fixed bottom-0 left-0 right-0 hidden bg-rose-600 px-4 py-2 text-sm text-white">
     An unhandled error has occurred.

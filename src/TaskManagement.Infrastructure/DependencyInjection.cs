@@ -40,7 +40,6 @@ public static class DependencyInjection
         services.AddScoped<IUserDirectory, UserDirectory>();
 
         services.AddOptions<EmailOptions>().Bind(configuration.GetSection(EmailOptions.SectionName));
-        services.AddOptions<FileStorageOptions>().Bind(configuration.GetSection(FileStorageOptions.SectionName));
 
         services.AddSingleton<IHtmlSanitizer, Content.RichTextSanitizer>();
 
@@ -51,13 +50,30 @@ public static class DependencyInjection
         services.AddSingleton<SmtpEmailSender>();
         services.AddSingleton<IEmailSender, QueuedEmailSender>();
         services.AddHostedService<EmailDispatcher>();
-        services.AddSingleton<IFileStorage, LocalFileStorage>();
+        AddFileStorage(services, configuration);
         services.AddSingleton<IClock, SystemClock>();
 
         services.AddSingleton<IDocumentTextExtractor, DocumentTextExtractor>();
+        services.AddSingleton<IAiRateLimiter, AiRateLimiter>();
         AddAiAssistant(services, configuration);
 
         return services;
+    }
+
+    /// <summary>
+    /// Local disk is the default; a bucket takes over automatically once its config is filled in —
+    /// same "off unless configured" pattern as <see cref="AddAiAssistant"/>.
+    /// </summary>
+    private static void AddFileStorage(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<FileStorageOptions>().Bind(configuration.GetSection(FileStorageOptions.SectionName));
+        services.AddOptions<S3StorageOptions>().Bind(configuration.GetSection(S3StorageOptions.SectionName));
+
+        var s3 = configuration.GetSection(S3StorageOptions.SectionName).Get<S3StorageOptions>() ?? new S3StorageOptions();
+        if (s3.IsConfigured)
+            services.AddSingleton<IFileStorage, S3FileStorage>();
+        else
+            services.AddSingleton<IFileStorage, LocalFileStorage>();
     }
 
     /// <summary>
