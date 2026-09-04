@@ -17,6 +17,14 @@ public static partial class Mentions
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+    /// <summary>
+    /// Positions of every @token in <paramref name="body"/>, for rendering (e.g. highlighting mentions in
+    /// a comment). Kept separate from <see cref="Extract"/> because a renderer needs where each token is,
+    /// not just its distinct set.
+    /// </summary>
+    public static IEnumerable<(int Start, int Length, string Token)> FindTokens(string body)
+        => TokenPattern().Matches(body).Select(m => (m.Index, m.Length, m.Groups[1].Value));
+
     /// <summary>The handle to insert for a person: their display name with separators removed.</summary>
     public static string HandleFor(string displayName, string email)
     {
