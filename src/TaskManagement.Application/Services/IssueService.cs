@@ -37,6 +37,7 @@ public sealed class IssueService(
         var project = await RequireProjectAsync(db, projectId, ct);
 
         var issues = await db.Issues
+            .Include(i => i.Attachments)
             .Where(i => i.ProjectId == projectId && i.SprintId == null && i.Status != IssueStatus.Done)
             .OrderBy(i => i.BoardRank)
             .ToListAsync(ct);

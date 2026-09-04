@@ -23,7 +23,7 @@ internal static class IssueMapper
             return new IssueListItemDto(
                 i.Id, $"{projectKey}-{i.Number}", i.Title, i.Type, i.Status, i.Priority, i.StoryPoints,
                 i.AssigneeUserId, assignee?.DisplayName, assignee?.AvatarColor, i.SprintId, i.BoardRank,
-                i.DueDate, i.IsOverdue(asOf));
+                i.DueDate, i.IsOverdue(asOf), i.Attachments.Count);
         }).ToList();
     }
 }

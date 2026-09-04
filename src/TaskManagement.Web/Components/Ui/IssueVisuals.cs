@@ -47,6 +47,16 @@ public static class IssueVisuals
         _ => "▪",
     };
 
+    /// <summary>Background colour for the kanban card's left accent strip — same colour family as <see cref="TypeIcon"/>.</summary>
+    public static string TypeAccentColor(IssueType type) => type switch
+    {
+        IssueType.Story => "bg-emerald-500",
+        IssueType.Bug => "bg-rose-500",
+        IssueType.Epic => "bg-purple-500",
+        IssueType.SubTask => "bg-sky-500",
+        _ => "bg-blue-500",
+    };
+
     public static string AttachmentIcon(string fileName) => Extension(fileName) switch
     {
         ".xlsx" or ".xls" or ".csv" => "table-cells",
