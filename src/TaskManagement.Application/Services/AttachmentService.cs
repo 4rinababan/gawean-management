@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TaskManagement.Application.Abstractions;
 using TaskManagement.Application.Common;
 using TaskManagement.Application.Contracts;
+using TaskManagement.Domain;
 using TaskManagement.Domain.Authorization;
 using TaskManagement.Domain.Issues;
 
@@ -13,11 +14,16 @@ public sealed class AttachmentService(IAppDbContextFactory dbf, IFileStorage sto
 {
     public async Task<AttachmentDto> UploadAsync(Guid issueId, Stream content, string fileName, string contentType, long sizeBytes, CancellationToken ct = default)
     {
-        guard.Require(OrgPermission.EditIssue);
+        // Matches IssueService's CanEditStatus: the reporter, the assignee, or an admin — an issue
+        // Viewer (comment-only) or an unrelated member has no business attaching files either.
+        guard.Require(OrgPermission.ViewContent);
         await using var db = dbf.CreateDbContext();
 
         var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == issueId, ct)
             ?? throw NotFoundException.For<Issue>(issueId);
+
+        if (issue.ReporterUserId != guard.UserId && issue.AssigneeUserId != guard.UserId && guard.Role != OrgRole.Admin)
+            throw new ForbiddenException("Only the reporter, the assignee, or an admin can add attachments.");
 
         var storageKey = await storage.SaveAsync(content, fileName, contentType, ct);
         var attachment = issue.AddAttachment(guard.UserId, fileName, contentType, sizeBytes, storageKey);
@@ -41,11 +47,15 @@ public sealed class AttachmentService(IAppDbContextFactory dbf, IFileStorage sto
 
     public async Task DeleteAsync(Guid attachmentId, CancellationToken ct = default)
     {
-        guard.Require(OrgPermission.EditIssue);
+        guard.Require(OrgPermission.ViewContent);
         await using var db = dbf.CreateDbContext();
 
         var attachment = await db.Attachments.FirstOrDefaultAsync(a => a.Id == attachmentId, ct)
             ?? throw NotFoundException.For<Attachment>(attachmentId);
+
+        // Only the uploader can remove their own file — not even the reporter/admin, by design.
+        if (attachment.UploadedByUserId != guard.UserId)
+            throw new ForbiddenException("Only the person who uploaded this file can delete it.");
 
         db.Attachments.Remove(attachment);
         await db.SaveChangesAsync(ct);

@@ -110,12 +110,22 @@ else
                 <ul class="space-y-1">
                     @foreach (var a in _issue.Attachments)
                     {
-                        <li class="flex items-center justify-between text-sm">
-                            <a class="inline-flex items-center gap-1.5 text-brand-600 hover:underline" href="@($"/{Slug}/attachments/{a.Id}")" target="_blank">
+                        <li class="flex items-center justify-between gap-2 text-sm">
+                            <a class="inline-flex min-w-0 items-center gap-1.5 text-brand-600 hover:underline" href="@($"/{Slug}/attachments/{a.Id}")" target="_blank">
                                 <Icon Name="@IssueVisuals.AttachmentIcon(a.FileName)" Class="@($"h-4 w-4 shrink-0 {IssueVisuals.AttachmentIconColor(a.FileName)}")" />
-                                @a.FileName
+                                <span class="truncate">@a.FileName</span>
                             </a>
-                            <span class="text-xs text-slate-400">@(a.SizeBytes / 1024) KB</span>
+                            <span class="flex shrink-0 items-center gap-2">
+                                <span class="text-xs text-slate-400">@(a.SizeBytes / 1024) KB</span>
+                                @if (a.UploadedByUserId == CurrentUser.UserId)
+                                {
+                                    <button type="button" class="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400"
+                                            title="Delete this attachment" aria-label="@($"Delete {a.FileName}")"
+                                            @onclick="() => _confirmDeleteAttachmentId = a.Id">
+                                        <Icon Name="trash" Class="h-4 w-4" />
+                                    </button>
+                                }
+                            </span>
                         </li>
                     }
                 </ul>
@@ -256,6 +266,10 @@ else
     <ConfirmDialog Open="_confirmDelete" OpenChanged="v => _confirmDelete = v" Destructive
                    Title="Delete issue" Message="@($"Delete {_issue.Reference}? This cannot be undone.")"
                    ConfirmText="Delete" OnConfirm="DeleteAsync" />
+
+    <ConfirmDialog Open="_confirmDeleteAttachmentId is not null" OpenChanged="v => { if (!v) _confirmDeleteAttachmentId = null; }" Destructive
+                   Title="Delete attachment" Message="Delete this file? This cannot be undone."
+                   ConfirmText="Delete" OnConfirm="DeleteAttachmentAsync" />
 }
 
 @code {
@@ -272,6 +286,7 @@ else
     private bool _uploading;
     private bool _editingDescription;
     private bool _confirmDelete;
+    private Guid? _confirmDeleteAttachmentId;
 
     private RenderFragment CommentsHeader => @<span class="text-sm font-semibold">Comments (@(_issue?.Comments.Count ?? 0))</span>;
     private RenderFragment ActivityHeader => @<span class="text-sm font-semibold">Activity</span>;
@@ -499,6 +514,18 @@ else
         }
         catch (Exception ex) { Toasts.Error(ex.Message); }
         finally { _uploading = false; }
+    }
+
+    private async Task DeleteAttachmentAsync()
+    {
+        if (_confirmDeleteAttachmentId is not { } id) return;
+        try
+        {
+            await Attachments.DeleteAsync(id);
+            await LoadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _confirmDeleteAttachmentId = null; }
     }
 
     private async Task DeleteAsync()
