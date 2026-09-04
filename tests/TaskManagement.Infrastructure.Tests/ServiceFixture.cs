@@ -41,7 +41,8 @@ public sealed class ServiceFixture : IDisposable
     public T Build<T>() where T : class
     {
         var guard = new PermissionGuard(Tenant, CurrentUser);
-        var changeProcessor = new IssueChangeProcessor(Users, Email, Realtime, Tenant, Urls);
+        var automation = new AutomationEngine(Urls, Tenant);
+        var changeProcessor = new IssueChangeProcessor(Users, Email, Realtime, Tenant, Urls, automation);
 
         object svc = typeof(T).Name switch
         {
@@ -54,6 +55,7 @@ public sealed class ServiceFixture : IDisposable
             nameof(InvitationService) => new InvitationService(Factory, CurrentUser, Users, Email, guard, Clock, Urls),
             nameof(AttachmentService) => new AttachmentService(Factory, Storage, guard),
             nameof(DashboardService) => new DashboardService(Factory, CurrentUser, Clock),
+            nameof(AutomationRuleService) => new AutomationRuleService(Factory, Users, guard),
             _ => throw new NotSupportedException(typeof(T).Name),
         };
         return (T)svc;

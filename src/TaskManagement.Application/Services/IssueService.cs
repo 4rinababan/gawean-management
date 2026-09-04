@@ -128,7 +128,7 @@ public sealed class IssueService(
         if (request.AssigneeUserId is not null) issue.Assign(request.AssigneeUserId, actor);
 
         db.Issues.Add(issue);
-        await changeProcessor.ProcessAsync(db, issue, project.Key, actor, ct);
+        await changeProcessor.ProcessAsync(db, issue, project.Key, actor, ct, created: true);
 
         return issue.Id;
     }

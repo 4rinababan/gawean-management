@@ -1,5 +1,7 @@
 using FluentValidation;
 using TaskManagement.Application.Contracts;
+using TaskManagement.Domain;
+using TaskManagement.Domain.Automation;
 
 namespace TaskManagement.Application.Validation;
 
@@ -92,5 +94,57 @@ public sealed class StartSprintRequestValidator : AbstractValidator<StartSprintR
     {
         RuleFor(x => x.EndDate).GreaterThan(x => x.StartDate)
             .WithMessage("The sprint must end after it starts.");
+    }
+}
+
+public sealed class AutomationActionDtoValidator : AbstractValidator<AutomationActionDto>
+{
+    public AutomationActionDtoValidator()
+    {
+        RuleFor(x => x.Type).IsInEnum();
+        RuleFor(x => x.Value)
+            .Must(v => Enum.TryParse<IssueStatus>(v, out _)).WithMessage("Choose a status.")
+            .When(x => x.Type == AutomationActionType.SetStatus);
+        RuleFor(x => x.Value)
+            .Must(v => Enum.TryParse<IssuePriority>(v, out _)).WithMessage("Choose a priority.")
+            .When(x => x.Type == AutomationActionType.SetPriority);
+        RuleFor(x => x.Value)
+            .NotEmpty().WithMessage("This action needs a value.")
+            .When(x => x.Type is AutomationActionType.AddComment or AutomationActionType.Notify);
+    }
+}
+
+public sealed class CreateAutomationRuleRequestValidator : AbstractValidator<CreateAutomationRuleRequest>
+{
+    public CreateAutomationRuleRequestValidator()
+    {
+        RuleFor(x => x.ProjectId).NotEmpty();
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(120);
+        RuleFor(x => x.TriggerType).IsInEnum();
+        RuleFor(x => x.TriggerValue)
+            .Must(v => Enum.TryParse<IssueStatus>(v, out _)).WithMessage("Choose a target status.")
+            .When(x => x.TriggerType == AutomationTriggerType.StatusChanged);
+        RuleFor(x => x.TriggerValue)
+            .Must(v => Enum.TryParse<IssuePriority>(v, out _)).WithMessage("Choose a target priority.")
+            .When(x => x.TriggerType == AutomationTriggerType.PriorityChanged);
+        RuleFor(x => x.Actions).NotEmpty().WithMessage("Add at least one action.");
+        RuleForEach(x => x.Actions).SetValidator(new AutomationActionDtoValidator());
+    }
+}
+
+public sealed class UpdateAutomationRuleRequestValidator : AbstractValidator<UpdateAutomationRuleRequest>
+{
+    public UpdateAutomationRuleRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(120);
+        RuleFor(x => x.TriggerType).IsInEnum();
+        RuleFor(x => x.TriggerValue)
+            .Must(v => Enum.TryParse<IssueStatus>(v, out _)).WithMessage("Choose a target status.")
+            .When(x => x.TriggerType == AutomationTriggerType.StatusChanged);
+        RuleFor(x => x.TriggerValue)
+            .Must(v => Enum.TryParse<IssuePriority>(v, out _)).WithMessage("Choose a target priority.")
+            .When(x => x.TriggerType == AutomationTriggerType.PriorityChanged);
+        RuleFor(x => x.Actions).NotEmpty().WithMessage("Add at least one action.");
+        RuleForEach(x => x.Actions).SetValidator(new AutomationActionDtoValidator());
     }
 }

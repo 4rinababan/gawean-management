@@ -13,6 +13,7 @@ public static class DependencyInjection
         services.AddValidatorsFromAssemblyContaining<CreateIssueRequestValidator>(ServiceLifetime.Singleton, includeInternalTypes: true);
 
         services.AddScoped<PermissionGuard>();
+        services.AddScoped<AutomationEngine>();
         services.AddScoped<IssueChangeProcessor>();
 
         services.AddScoped<OrganizationService>();
@@ -24,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<NotificationService>();
         services.AddScoped<AttachmentService>();
         services.AddScoped<DashboardService>();
+        services.AddScoped<AutomationRuleService>();
 
         return services;
     }

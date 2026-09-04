@@ -59,4 +59,5 @@ public enum NotificationType
     IssueStatusChanged = 3,
     AddedToOrganization = 4,
     SprintStarted = 5,
+    AutomationRuleFired = 6,
 }
