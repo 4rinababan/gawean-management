@@ -15,21 +15,21 @@
 
 <PageTitle>Register confirmation</PageTitle>
 
-<h1>Register confirmation</h1>
+<AccountMessage Title="Register confirmation" Tone="@(statusMessage is not null ? "danger" : "info")">
+    <StatusMessage Message="@statusMessage" />
 
-<StatusMessage Message="@statusMessage" />
-
-@if (emailConfirmationLink is not null)
-{
-    <p>
-        SMTP is not configured in this environment, so the confirmation email was written to the logs instead.
-        You can confirm directly here: <a href="@emailConfirmationLink">Click here to confirm your account</a>
-    </p>
-}
-else
-{
-    <p role="alert">Please check your email to confirm your account.</p>
-}
+    @if (emailConfirmationLink is not null)
+    {
+        <p>
+            SMTP is not configured in this environment, so the confirmation email was written to the logs instead.
+            You can confirm directly here: <a class="text-brand-600 hover:underline" href="@emailConfirmationLink">Click here to confirm your account</a>
+        </p>
+    }
+    else if (statusMessage is null)
+    {
+        <p role="alert">Please check your email to confirm your account.</p>
+    }
+</AccountMessage>
 
 @code {
     private string? emailConfirmationLink;

@@ -10,8 +10,9 @@
 
 <PageTitle>Confirm email</PageTitle>
 
-<h1>Confirm email</h1>
-<StatusMessage Message="@statusMessage" />
+<AccountMessage Title="Confirm email" Tone="@(statusMessage?.StartsWith("Error") == true ? "danger" : "success")">
+    <StatusMessage Message="@statusMessage" />
+</AccountMessage>
 
 @code {
     private string? statusMessage;
