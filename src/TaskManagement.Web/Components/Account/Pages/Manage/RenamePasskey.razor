@@ -8,27 +8,26 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 
-<EditForm Model="Input" OnValidSubmit="Rename" FormName="rename-passkey" method="post">
-    <DataAnnotationsValidator />
-    @if (passkey?.Name is { } name)
-    {
-        <h4>Enter a new name for your "@name" passkey</h4>
-    }
-    else
-    {
-        <h4>Enter a name for your passkey</h4>
-    }
-    <hr />
-    <ValidationSummary class="text-danger" role="alert" />
-    <div class="form-floating mb-3">
-        <InputText @bind-Value="Input.Name" id="Input.Name" class="form-control" aria-required="true" placeholder="My passkey" />
-        <label for="Input.Name" class="form-label">Passkey name</label>
-        <ValidationMessage For="() => Input.Name" class="text-danger" />
-    </div>
-    <div>
-        <button type="submit" class="w-100 btn btn-lg btn-primary">Continue</button>
-    </div>
-</EditForm>
+<PageTitle>Rename passkey</PageTitle>
+
+<h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-slate-100">
+    @(passkey?.Name is { } name ? $"Rename your \"{name}\" passkey" : "Name your passkey")
+</h2>
+
+<Card>
+    <EditForm Model="Input" OnValidSubmit="Rename" FormName="rename-passkey" method="post">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" role="alert" />
+        <div class="space-y-4">
+            <div>
+                <label for="Input.Name" class="tm-label">Passkey name</label>
+                <InputText @bind-Value="Input.Name" id="Input.Name" class="tm-input" aria-required="true" autofocus placeholder="My passkey" />
+                <ValidationMessage For="() => Input.Name" class="mt-1 block text-xs text-rose-500" />
+            </div>
+            <button type="submit" class="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700">Continue</button>
+        </div>
+    </EditForm>
+</Card>
 
 @code {
     private ApplicationUser? user;

@@ -55,6 +55,7 @@ public static class IssueVisuals
         ".zip" or ".rar" or ".7z" or ".gz" => "archive-box",
         ".ppt" or ".pptx" => "document-chart-bar",
         ".png" or ".jpg" or ".jpeg" or ".gif" or ".webp" or ".svg" => "photo",
+        ".sql" or ".json" or ".xml" or ".js" or ".ts" or ".cs" or ".py" or ".html" or ".css" or ".yml" or ".yaml" => "code-bracket",
         _ => "paper-clip",
     };
 
@@ -66,6 +67,7 @@ public static class IssueVisuals
         ".zip" or ".rar" or ".7z" or ".gz" => "text-amber-600 dark:text-amber-400",
         ".ppt" or ".pptx" => "text-orange-600 dark:text-orange-400",
         ".png" or ".jpg" or ".jpeg" or ".gif" or ".webp" or ".svg" => "text-purple-600 dark:text-purple-400",
+        ".sql" or ".json" or ".xml" or ".js" or ".ts" or ".cs" or ".py" or ".html" or ".css" or ".yml" or ".yaml" => "text-sky-600 dark:text-sky-400",
         _ => "text-slate-500 dark:text-slate-400",
     };
 
