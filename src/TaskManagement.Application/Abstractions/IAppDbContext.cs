@@ -31,6 +31,7 @@ public interface IAppDbContext : IAsyncDisposable
     DbSet<Comment> Comments { get; }
     DbSet<Attachment> Attachments { get; }
     DbSet<IssueViewer> IssueViewers { get; }
+    DbSet<IssueAiNote> IssueAiNotes { get; }
     DbSet<ActivityLog> ActivityLogs { get; }
     DbSet<Sprint> Sprints { get; }
     DbSet<Notification> Notifications { get; }

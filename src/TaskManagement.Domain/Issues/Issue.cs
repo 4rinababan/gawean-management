@@ -9,6 +9,7 @@ public class Issue : Entity, ITenantScoped
     private readonly List<Comment> _comments = [];
     private readonly List<Attachment> _attachments = [];
     private readonly List<IssueViewer> _viewers = [];
+    private readonly List<IssueAiNote> _aiNotes = [];
     private readonly List<IssueChange> _changes = [];
 
     private Issue() { }
@@ -65,6 +66,9 @@ public class Issue : Entity, ITenantScoped
 
     /// <summary>People following this issue without being the accountable <see cref="AssigneeUserId"/>.</summary>
     public IReadOnlyCollection<IssueViewer> Viewers => _viewers.AsReadOnly();
+
+    /// <summary>Saved AI answers to questions asked about this issue.</summary>
+    public IReadOnlyCollection<IssueAiNote> AiNotes => _aiNotes.AsReadOnly();
 
     /// <summary>Field-level changes accumulated since the entity was loaded; consumed and cleared by the application layer.</summary>
     public IReadOnlyCollection<IssueChange> DequeueChanges()
@@ -184,6 +188,14 @@ public class Issue : Entity, ITenantScoped
         _viewers.Remove(viewer);
         _changes.Add(new IssueChange(Id, "Viewer", userId, null, actorUserId));
         UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public IssueAiNote AddAiNote(string askedByUserId, string question, string answer, string actorUserId)
+    {
+        var note = new IssueAiNote(Id, OrganizationId, askedByUserId, question, answer);
+        _aiNotes.Add(note);
+        UpdatedAt = DateTimeOffset.UtcNow;
+        return note;
     }
 
     private void Record(string field, string? oldValue, string? newValue, string actorUserId)

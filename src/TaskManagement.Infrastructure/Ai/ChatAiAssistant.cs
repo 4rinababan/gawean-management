@@ -36,6 +36,27 @@ public sealed class ChatAiAssistant : IAiAssistant
           storyPoints  integer from the Fibonacci set 1,2,3,5,8,13 — or null when unclear
         """;
 
+    // No JSON here — this is a direct answer to a person, not a form to fill in.
+    private const string QaSystemPrompt = """
+        You are "GAWE AI", an assistant embedded on a single issue's page in GaweAn — a simple,
+        AI-assisted task management app. Your job is to help a developer or QA/SA understand THIS
+        issue's requirements: clarify what a bullet point in the description means, spell out
+        acceptance criteria, call out edge cases they should handle or test for.
+
+        Stay strictly on topic:
+        - If asked what GaweAn is, answer with exactly this, nothing more unless asked to expand:
+          "GaweAn is a simple, AI-assisted task management app."
+        - If the question is about this issue's requirements, answer clearly and concretely using
+          only what the issue's title/description actually say — never invent requirements that
+          are not there.
+        - Anything else (unrelated topics, other issues, general chit-chat) — politely decline and
+          say you can only help with this issue.
+
+        Reply in the SAME language the question was asked in. Reply with clean HTML only, using
+        only <p> <ul> <ol> <li> <strong> <em> <code> <pre> tags — no prose outside those tags, no
+        markdown code fence.
+        """;
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _http;
@@ -73,9 +94,35 @@ public sealed class ChatAiAssistant : IAiAssistant
             ? prompt.Trim()
             : $"{prompt.Trim()}\n\n--- Content extracted from an attached spec file ---\n{documentContext}";
 
+        var content = await CompleteAsync(SystemPrompt, userMessage, ct);
+        return Parse(content);
+    }
+
+    public async Task<string> AnswerIssueQuestionAsync(string issueTitle, string? issueDescription, string question, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(question))
+        {
+            throw new ArgumentException("Ask a question first.", nameof(question));
+        }
+
+        if (!IsEnabled)
+        {
+            throw new InvalidOperationException("No AI model is configured.");
+        }
+
+        var userMessage = $"Issue: {issueTitle}\n\nDescription:\n{issueDescription}\n\nQuestion: {question.Trim()}";
+        var content = await CompleteAsync(QaSystemPrompt, userMessage, ct);
+
+        // Model output is untrusted input like anything else a user pastes in.
+        return _sanitizer.Sanitize(content) ?? "";
+    }
+
+    /// <summary>Sends a system + user message and returns the model's raw text reply.</summary>
+    private async Task<string> CompleteAsync(string systemPrompt, string userMessage, CancellationToken ct)
+    {
         var request = new ChatRequest(
             _options.Model,
-            [new ChatMessage("system", SystemPrompt), new ChatMessage("user", userMessage)],
+            [new ChatMessage("system", systemPrompt), new ChatMessage("user", userMessage)],
             _options.MaxTokens,
             _options.Temperature);
 
@@ -103,10 +150,10 @@ public sealed class ChatAiAssistant : IAiAssistant
             throw new AiAssistantException(
                 choice.FinishReason == "length"
                     ? "The model ran out of room before answering. Try a shorter description."
-                    : "The model did not return a draft. Try again.");
+                    : "The model did not return an answer. Try again.");
         }
 
-        return Parse(choice.Message.Content);
+        return choice.Message.Content;
     }
 
     private IssueDraft Parse(string content)
@@ -191,5 +238,8 @@ public sealed class DisabledAiAssistant : IAiAssistant
     public bool IsEnabled => false;
 
     public Task<IssueDraft> DraftIssueAsync(string prompt, string? documentContext = null, CancellationToken ct = default) =>
+        throw new InvalidOperationException("No AI model is configured.");
+
+    public Task<string> AnswerIssueQuestionAsync(string issueTitle, string? issueDescription, string question, CancellationToken ct = default) =>
         throw new InvalidOperationException("No AI model is configured.");
 }
