@@ -52,6 +52,11 @@ public sealed class S3FileStorage : IFileStorage
             ServiceURL = o.Endpoint,
             AuthenticationRegion = string.IsNullOrWhiteSpace(o.Region) ? null : o.Region,
             ForcePathStyle = true, // required by most non-AWS S3-compatible providers
+            // The SDK's v4 default (WHEN_SUPPORTED) adds a trailing checksum to the upload stream that
+            // only AWS itself understands — R2 (and MinIO/B2) reject it with "STREAMING-AWS4-HMAC-
+            // SHA256-PAYLOAD-TRAILER not implemented". WHEN_REQUIRED keeps checksums SigV4-only.
+            RequestChecksumCalculation = RequestChecksumCalculation.WHEN_REQUIRED,
+            ResponseChecksumValidation = ResponseChecksumValidation.WHEN_REQUIRED,
         };
         _client = new AmazonS3Client(new BasicAWSCredentials(o.AccessKey, o.SecretKey), config);
     }
