@@ -1,9 +1,11 @@
 using System.Security.Claims;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using TaskManagement.Application;
 using TaskManagement.Application.Abstractions;
@@ -104,6 +106,26 @@ builder.Services.AddHealthChecks()
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
+// Per-IP throttle on the auth surface only (login/register/forgot-password/etc.) — on top of, not
+// instead of, Identity's own per-account lockout, which doesn't catch spread-out attempts against
+// many accounts from one IP.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+        ctx.Request.Path.StartsWithSegments("/Account")
+            ? RateLimitPartition.GetSlidingWindowLimiter(
+                ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new SlidingWindowRateLimiterOptions
+                {
+                    PermitLimit = 20,
+                    Window = TimeSpan.FromMinutes(5),
+                    SegmentsPerWindow = 5,
+                    QueueLimit = 0,
+                })
+            : RateLimitPartition.GetNoLimiter("unrestricted"));
+});
+
 var app = builder.Build();
 
 // --- Migrate on startup (guarded) ----------------------------------------------
@@ -128,6 +150,7 @@ else
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+app.UseRateLimiter();
 app.UseAntiforgery();
 
 app.MapStaticAssets();

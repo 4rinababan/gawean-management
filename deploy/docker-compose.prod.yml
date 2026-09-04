@@ -15,6 +15,13 @@ services:
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       DataProtection__KeyPath: /keys
       FileStorage__RootPath: /app/uploads
+      # Attachments stay on local disk (above) until these are filled in — then S3FileStorage takes
+      # over automatically, no other config change needed. Works with any S3-compatible endpoint.
+      S3Storage__Endpoint: ${S3_ENDPOINT:-}
+      S3Storage__Region: ${S3_REGION:-}
+      S3Storage__BucketName: ${S3_BUCKET:-}
+      S3Storage__AccessKey: ${S3_ACCESS_KEY:-}
+      S3Storage__SecretKey: ${S3_SECRET_KEY:-}
       Smtp__Host: ${SMTP_HOST:-}
       Smtp__Port: ${SMTP_PORT:-587}
       Smtp__Security: ${SMTP_SECURITY:-Auto}
@@ -50,6 +57,27 @@ services:
       timeout: 5s
       retries: 10
 
+  # Nightly pg_dump with rotation, no operator cron needed. Still lives on this one disk — it protects
+  # against a bad migration/accidental delete, not against losing the VPS itself (that needs the dumps
+  # copied off-host separately).
+  db-backup:
+    image: prodrigestivill/postgres-backup-local:16
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+    volumes:
+      - db_backups:/backups
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -68,6 +96,7 @@ services:
 
 volumes:
   pgdata:
+  db_backups:
   uploads:
   keys:
   caddy_data:

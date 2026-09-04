@@ -17,6 +17,8 @@
     <PackageReference Include="ClosedXML" />
     <PackageReference Include="PdfPig" />
     <PackageReference Include="DocumentFormat.OpenXml" />
+    <PackageReference Include="System.Threading.RateLimiting" />
+    <PackageReference Include="AWSSDK.S3" />
   </ItemGroup>
 
   <ItemGroup>

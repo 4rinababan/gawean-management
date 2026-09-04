@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 using TaskManagement.Application.Abstractions;
 using TaskManagement.Domain;
 using TaskManagement.Infrastructure.Ai;
@@ -23,6 +24,12 @@ public class AiAssistantTests
             BaseAddress = new Uri("https://model.example/v1/"),
         };
 
+        var currentUser = Substitute.For<ICurrentUser>();
+        currentUser.RequireUserId().Returns("test-user");
+
+        var rateLimiter = Substitute.For<IAiRateLimiter>();
+        rateLimiter.TryAcquire(Arg.Any<string>()).Returns(true);
+
         return new ChatAiAssistant(
             http,
             Options.Create(new AiOptions
@@ -32,6 +39,8 @@ public class AiAssistantTests
                 Model = "test-model",
             }),
             new RichTextSanitizer(),
+            currentUser,
+            rateLimiter,
             NullLogger<ChatAiAssistant>.Instance);
     }
 

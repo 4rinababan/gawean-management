@@ -64,6 +64,14 @@ SMTP_FROM_NAME=GaWeAn
 AI_ENDPOINT=https://api.biznetgio.ai/v1
 AI_API_KEY=
 AI_MODEL=openai/gpt-oss-20b
+
+# Optional: S3-compatible bucket for attachments (AWS S3, R2, B2, MinIO...). Leave blank to keep
+# storing attachments on this VPS's disk.
+S3_ENDPOINT=
+S3_REGION=
+S3_BUCKET=
+S3_ACCESS_KEY=
+S3_SECRET_KEY=
 EOF
 
 chmod 600 .env
@@ -112,10 +120,19 @@ docker compose -f docker-compose.prod.yml ps
 docker compose -f docker-compose.prod.yml logs -f web
 docker compose -f docker-compose.prod.yml logs -f caddy    # certificate problems show up here
 
-# Backup (run from a cron job; keep the dumps off this host)
+# The db-backup service dumps the database daily on its own (7 daily / 4 weekly / 6 monthly kept) —
+# no cron needed. Dumps land in the db_backups volume, still on this host:
+docker volume inspect deploy_db_backups --format '{{ .Mountpoint }}'
+docker compose -f docker-compose.prod.yml logs db-backup   # confirm it's actually running
+
+# One-off manual dump (e.g. right before a risky change), independent of the schedule above:
 docker compose -f docker-compose.prod.yml exec -T db \
   pg_dump -U gawean taskmanagement > backup-$(date +%F).sql
 ```
+
+The `db-backup` service only protects against a bad migration or an accidental delete — the dumps
+still live on this one disk. Copy them off-host periodically (e.g. a cron `rsync`/`rclone` job, or
+point `S3_*` in `.env` at a bucket and switch attachments to it) for real disaster recovery.
 
 Attachments live in the `uploads` volume — include it in the backup routine, or switch
 `IFileStorage` to an object store.

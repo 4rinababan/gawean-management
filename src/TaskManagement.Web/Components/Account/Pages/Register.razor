@@ -48,6 +48,11 @@
                     <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="tm-input" autocomplete="new-password" aria-required="true" placeholder="••••••••" />
                     <ValidationMessage For="() => Input.ConfirmPassword" class="mt-1 block text-xs text-rose-500" />
                 </div>
+                <p class="text-center text-xs text-slate-500 dark:text-slate-400">
+                    By creating an account you agree to the
+                    <a class="text-brand-600 hover:underline" href="/legal/terms">Terms of Service</a> and
+                    <a class="text-brand-600 hover:underline" href="/legal/privacy">Privacy Policy</a>.
+                </p>
                 <button type="submit" class="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700">Create account</button>
             </div>
         </EditForm>

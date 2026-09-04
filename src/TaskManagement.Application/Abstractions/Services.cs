@@ -106,6 +106,16 @@ public interface IAiAssistant
 }
 
 /// <summary>
+/// Caps how often one user may call the AI assistant — it proxies to a paid external API, so an
+/// unbounded loop (accidental or malicious) turns directly into an uncontrolled bill.
+/// </summary>
+public interface IAiRateLimiter
+{
+    /// <summary>True if this user may make another AI call right now; false if they've hit their hourly cap.</summary>
+    bool TryAcquire(string userId);
+}
+
+/// <summary>
 /// Pulls plain text out of an uploaded spec file so it can be handed to <see cref="IAiAssistant"/> as
 /// extra drafting context. Cell/paragraph text only — content drawn as shapes (e.g. an Excel flowchart
 /// made of text boxes) isn't captured.

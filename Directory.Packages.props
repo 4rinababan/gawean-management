@@ -39,6 +39,11 @@
     <PackageVersion Include="ClosedXML" Version="0.105.1" />
     <PackageVersion Include="PdfPig" Version="0.1.16" />
     <PackageVersion Include="DocumentFormat.OpenXml" Version="3.5.1" />
+    <!-- Standalone package: TaskManagement.Infrastructure is a plain class library (Microsoft.NET.Sdk),
+         so it doesn't get System.Threading.RateLimiting for free the way an ASP.NET Core Web SDK project does. -->
+    <PackageVersion Include="System.Threading.RateLimiting" Version="10.0.11" />
+    <!-- Attachment storage: works against any S3-compatible endpoint (R2/B2/MinIO), not just AWS. -->
+    <PackageVersion Include="AWSSDK.S3" Version="4.0.102.4" />
 
     <!-- Web -->
     <PackageVersion Include="Blazored.FluentValidation" Version="2.2.0" />
