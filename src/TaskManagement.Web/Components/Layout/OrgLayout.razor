@@ -16,7 +16,7 @@ else if (_state is State.Denied or State.Missing)
                 Description="@(_state == State.Denied
                     ? "Ask an administrator to invite you, or switch to a workspace you belong to."
                     : "The workspace URL doesn't match anything we have.")">
-        <Actions><a href="/dashboard"><Button>Back to your workspaces</Button></a></Actions>
+        <Actions><a href="/"><Button>Back to your workspaces</Button></a></Actions>
     </EmptyState>
 }
 else
@@ -45,7 +45,7 @@ else
         var slug = Slug;
         if (string.IsNullOrEmpty(slug))
         {
-            Nav.NavigateTo("/dashboard");
+            Nav.NavigateTo("/");
             return;
         }
 

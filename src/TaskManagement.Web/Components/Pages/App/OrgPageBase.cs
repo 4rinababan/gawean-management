@@ -27,7 +27,7 @@ public abstract class OrgPageBase : ComponentBase
 
         if (!TenantReady)
         {
-            Nav.NavigateTo("/dashboard", replace: true);
+            Nav.NavigateTo("/", replace: true);
             return;
         }
 

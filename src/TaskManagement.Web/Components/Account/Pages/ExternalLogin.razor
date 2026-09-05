@@ -125,7 +125,7 @@
             var signedInUser = await UserManager.FindByLoginAsync(externalLoginInfo.LoginProvider, externalLoginInfo.ProviderKey);
             if (signedInUser is not null)
                 await Organizations.LogLoginAsync(await UserManager.GetUserIdAsync(signedInUser));
-            RedirectManager.RedirectTo(ReturnUrl ?? "/dashboard");
+            RedirectManager.RedirectTo(ReturnUrl);
             return;
         }
         else if (result.IsLockedOut)
@@ -184,7 +184,7 @@
                 {
                     await SignInManager.SignInAsync(user, isPersistent: false, externalLoginInfo.LoginProvider);
                     await Organizations.LogLoginAsync(userId);
-                    RedirectManager.RedirectTo(ReturnUrl ?? "/dashboard");
+                    RedirectManager.RedirectTo(ReturnUrl);
                 }
             }
         }

@@ -122,7 +122,7 @@
             var loggedInUser = await UserManager.FindByEmailAsync(Input.Email);
             if (loggedInUser is not null)
                 await Organizations.LogLoginAsync(await UserManager.GetUserIdAsync(loggedInUser));
-            RedirectManager.RedirectTo(ReturnUrl ?? "/dashboard");
+            RedirectManager.RedirectTo(ReturnUrl);
         }
         else if (result.RequiresTwoFactor)
         {
