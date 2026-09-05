@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /Account/
+Disallow: /invitations/
+
+Sitemap: https://gawean.web.id/sitemap.xml
