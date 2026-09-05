@@ -1,166 +1,95 @@
 @page "/"
-@rendermode InteractiveServer
-@attribute [Authorize]
-@inject DashboardService Dashboard
-@inject OrganizationService Organizations
 @inject NavigationManager Nav
-@inject ToastService Toasts
-@inject TourState Tour
 
-<PageTitle>Dashboard</PageTitle>
-
-<PageHeader Title="Your dashboard" Subtitle="Work assigned to you across every workspace.">
-    <Actions>
-        <Button Icon="plus" OnClick="() => _showCreate = true" data-tour="new-workspace-btn">New workspace</Button>
-    </Actions>
-</PageHeader>
-
-@if (_data is null)
-{
-    <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+@{
+    var origin = new Uri(Nav.Uri).GetLeftPart(UriPartial.Authority);
+    var ogImage = $"{origin}/og-image.png";
 }
-else
-{
-    <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatTile Label="Done" Value="_data.Stats.Done" Icon="check-circle" Color="StatTile.Tone.Good"
-                  Caption="Tasks you've completed" />
-        <StatTile Label="In progress" Value="_data.Stats.InProgress" Icon="clock" Color="StatTile.Tone.Info"
-                  Caption="Being worked on or in review" />
-        <StatTile Label="Overdue" Value="_data.Stats.Overdue" Icon="exclamation-triangle" Color="StatTile.Tone.Critical"
-                  Caption="Past their due date" />
-        <StatTile Label="Projects" Value="_data.Stats.Projects" Icon="squares" Color="StatTile.Tone.Neutral"
-                  Caption="@($"Across {_data.Stats.Workspaces} workspace{(_data.Stats.Workspaces == 1 ? "" : "s")}")" />
+
+<PageTitle>GaweAn — Task &amp; project management for teams</PageTitle>
+
+<HeadContent>
+    <meta name="description" content="GaweAn is a task and project management tool for teams — Kanban boards, backlog grooming, sprint planning, burndown charts and workflow automation rules, free to start." />
+    <link rel="canonical" href="@origin/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="GaweAn — Task &amp; project management for teams" />
+    <meta property="og:description" content="Kanban boards, backlog, sprints, burndown charts and automation rules — in one place, free to start." />
+    <meta property="og:url" content="@origin/" />
+    <meta property="og:image" content="@ogImage" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="GaweAn — Task &amp; project management for teams" />
+    <meta name="twitter:description" content="Kanban boards, backlog, sprints, burndown charts and automation rules — in one place, free to start." />
+    <meta name="twitter:image" content="@ogImage" />
+</HeadContent>
+
+<section class="py-10 sm:py-16">
+    <div class="mx-auto max-w-2xl text-center">
+        <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-5xl">
+            Kelola tugas tim, rapi dari backlog sampai selesai
+        </h1>
+        <p class="mt-4 text-lg text-slate-600 dark:text-slate-400">
+            Board, backlog, sprint, dan automation rule dalam satu tempat &mdash; sederhana untuk tim kecil
+            maupun organisasi.
+        </p>
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <AuthorizeView>
+                <Authorized>
+                    <a href="/dashboard"><Button>Go to your dashboard</Button></a>
+                </Authorized>
+                <NotAuthorized>
+                    <a href="Account/Register"><Button>Get started free</Button></a>
+                    <a href="Account/Login"><Button Variant="Button.ButtonVariant.Secondary">Sign in</Button></a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
     </div>
 
-    <div class="mt-8 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <section>
-            <h2 class="mb-3 text-sm font-semibold text-slate-500">
-                Assigned to you
-                @if (_data.Stats.OpenTotal > _data.MyOpenTasks.Count)
-                {
-                    <span class="font-normal text-slate-400">· showing @_data.MyOpenTasks.Count of @_data.Stats.OpenTotal open</span>
-                }
-            </h2>
-
-            @if (_data.MyOpenTasks.Count == 0)
-            {
-                <EmptyState Icon="check-circle" Title="Nothing on your plate"
-                            Description="No open tasks are assigned to you right now." />
-            }
-            else
-            {
-                <Card Padded="false">
-                    <ul class="divide-y divide-slate-100 dark:divide-slate-800">
-                        @foreach (var t in _data.MyOpenTasks)
-                        {
-                            <li @key="t.Id"
-                                class="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                                @onclick="() => OpenTask(t)">
-                                <span class="w-20 shrink-0 font-mono text-xs text-slate-400">@t.Reference</span>
-                                <span class="min-w-0 flex-1 truncate text-sm text-slate-700 dark:text-slate-200">@t.Title</span>
-                                <Badge Color="IssueVisuals.StatusColor(t.Status)">@IssueVisuals.StatusLabel(t.Status)</Badge>
-                                @if (t.DueDate is { } due)
-                                {
-                                    <span class="@($"text-xs {(t.IsOverdue ? "font-semibold text-rose-600 dark:text-rose-400" : "text-slate-400")}")">
-                                        @(t.IsOverdue ? "⚠ overdue " : "due ")@due.ToString("MMM d")
-                                    </span>
-                                }
-                                <span class="w-full truncate text-xs text-slate-400 sm:w-auto">@t.ProjectName</span>
-                            </li>
-                        }
-                    </ul>
-                </Card>
-            }
-        </section>
-
-        <section>
-            <h2 class="mb-3 text-sm font-semibold text-slate-500">Workspaces</h2>
-            @if (_data.Workspaces.Count == 0)
-            {
-                <EmptyState Icon="rocket" Title="No workspaces yet"
-                            Description="Create your first workspace to start tracking work with your team.">
-                    <Actions><Button OnClick="() => _showCreate = true">Create a workspace</Button></Actions>
-                </EmptyState>
-            }
-            else
-            {
-                <div class="space-y-3">
-                    @foreach (var org in _data.Workspaces)
-                    {
-                        <a href="@($"/{org.Slug}")" class="block" @key="org.Id">
-                            <Card Class="transition hover:border-brand-300 hover:shadow-md">
-                                <div class="flex items-center gap-3">
-                                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 font-semibold text-brand-700 dark:bg-brand-900/50 dark:text-brand-200">
-                                        @org.Name[..1].ToUpperInvariant()
-                                    </span>
-                                    <div class="min-w-0 flex-1">
-                                        <h3 class="truncate font-semibold text-slate-900 dark:text-slate-100">@org.Name</h3>
-                                        <p class="text-xs text-slate-400">@org.MemberCount member@(org.MemberCount == 1 ? "" : "s")</p>
-                                    </div>
-                                    <Badge>@org.CurrentUserRole</Badge>
-                                </div>
-                            </Card>
-                        </a>
-                    }
+    <div class="mx-auto mt-16 grid max-w-4xl gap-4 sm:grid-cols-2">
+        <Card>
+            <div class="flex items-start gap-3">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-200">
+                    <Icon Name="squares" Class="h-5 w-5" />
+                </span>
+                <div>
+                    <h2 class="font-semibold text-slate-900 dark:text-slate-100">Kanban board</h2>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Drag tugas antar kolom status, lihat progres tim secara real-time.</p>
                 </div>
-            }
-        </section>
+            </div>
+        </Card>
+        <Card>
+            <div class="flex items-start gap-3">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-200">
+                    <Icon Name="flag" Class="h-5 w-5" />
+                </span>
+                <div>
+                    <h2 class="font-semibold text-slate-900 dark:text-slate-100">Backlog &amp; sprint</h2>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Susun backlog, rencanakan sprint, dan pantau burndown chart tiap iterasi.</p>
+                </div>
+            </div>
+        </Card>
+        <Card>
+            <div class="flex items-start gap-3">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-200">
+                    <Icon Name="rocket" Class="h-5 w-5" />
+                </span>
+                <div>
+                    <h2 class="font-semibold text-slate-900 dark:text-slate-100">Automation rules</h2>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Otomatiskan pekerjaan berulang: pindah status, assign, dan notifikasi otomatis.</p>
+                </div>
+            </div>
+        </Card>
+        <Card>
+            <div class="flex items-start gap-3">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-200">
+                    <Icon Name="users" Class="h-5 w-5" />
+                </span>
+                <div>
+                    <h2 class="font-semibold text-slate-900 dark:text-slate-100">Workspace tim</h2>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Undang anggota, atur peran, dan kelola beberapa proyek dalam satu workspace.</p>
+                </div>
+            </div>
+        </Card>
     </div>
-}
-
-<Modal Open="_showCreate" OpenChanged="v => _showCreate = v" Title="Create a workspace">
-    <EditForm Model="_form" OnValidSubmit="CreateAsync" OnInvalidSubmit="WarnInvalid">
-        <FluentValidationValidator />
-        <div class="space-y-4">
-            <Field Label="Workspace name" Required>
-                <InputText @bind-Value="_form.Name" class="tm-input" placeholder="Acme Inc" />
-                <ValidationMessage For="() => _form.Name" class="mt-1 block text-xs text-rose-500" />
-            </Field>
-            <Field Label="Workspace URL" Required Hint="@($"Your team will access it at /{Slugified}")">
-                <InputText @bind-Value="_form.Slug" class="tm-input" placeholder="acme" />
-                <ValidationMessage For="() => _form.Slug" class="mt-1 block text-xs text-rose-500" />
-            </Field>
-        </div>
-        <div class="mt-6 flex justify-end gap-2">
-            <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => _showCreate = false">Cancel</Button>
-            <Button Type="submit" Loading="_busy">Create workspace</Button>
-        </div>
-    </EditForm>
-</Modal>
-
-@code {
-    private DashboardDto? _data;
-    private bool _showCreate;
-    private bool _busy;
-    private readonly CreateOrganizationRequest _form = new();
-
-    private string Slugified => string.IsNullOrWhiteSpace(_form.Slug)
-        ? "workspace"
-        : new string(_form.Slug.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray()).Trim('-');
-
-    protected override async Task OnInitializedAsync() => _data = await Dashboard.GetAsync();
-
-    private void OpenTask(MyTaskDto task) => Nav.NavigateTo($"/{task.OrganizationSlug}/issues/{task.Id}");
-
-    private void WarnInvalid() => Toasts.Warning("Please fix the highlighted fields.");
-
-    private async Task CreateAsync()
-    {
-        _busy = true;
-        try
-        {
-            var created = await Organizations.CreateAsync(_form);
-            Tour.MarkDone(TourStep.CreateWorkspace);
-            Toasts.Success($"Workspace \"{created.Name}\" created.");
-            Nav.NavigateTo($"/{created.Slug}");
-        }
-        catch (Exception ex)
-        {
-            Toasts.Error(ex.Message);
-        }
-        finally
-        {
-            _busy = false;
-        }
-    }
-}
+</section>

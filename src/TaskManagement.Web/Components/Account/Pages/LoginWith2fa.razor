@@ -76,7 +76,7 @@
         {
             Logger.LogInformation("User with ID '{UserId}' logged in with 2fa.", userId);
             await Organizations.LogLoginAsync(userId);
-            RedirectManager.RedirectTo(ReturnUrl);
+            RedirectManager.RedirectTo(ReturnUrl ?? "/dashboard");
         }
         else if (result.IsLockedOut)
         {

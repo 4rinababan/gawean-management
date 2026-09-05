@@ -142,7 +142,7 @@ else
         {
             await Organizations.DeleteAsync(_deleteConfirmation);
             Toasts.Success($"Workspace \"{_form.Name}\" deleted.");
-            Nav.NavigateTo("/", forceLoad: true); // the tenant this circuit resolved no longer exists
+            Nav.NavigateTo("/dashboard", forceLoad: true); // the tenant this circuit resolved no longer exists
         }
         catch (Exception ex) { Toasts.Error(ex.Message); }
         finally { _busy = false; }
