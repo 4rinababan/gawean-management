@@ -1,7 +1,7 @@
 @namespace TaskManagement.Web.Components.Ui
 
 <div data-issue-id="@Issue.Id"
-     class="flex cursor-pointer overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:border-brand-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
+     class="flex touch-pan-y cursor-pointer overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:border-brand-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
      @onclick="OnOpen">
     <div class="@($"w-1 shrink-0 {IssueVisuals.TypeAccentColor(Issue.Type)}")" title="@Issue.Type"></div>
     <div class="min-w-0 flex-1 p-3">

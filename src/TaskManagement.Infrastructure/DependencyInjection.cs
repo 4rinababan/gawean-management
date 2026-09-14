@@ -2,8 +2,11 @@ using System.Threading.Channels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using TaskManagement.Application.Abstractions;
 using TaskManagement.Infrastructure.Ai;
+using TaskManagement.Infrastructure.Diagnostics;
 using TaskManagement.Infrastructure.Email;
 using TaskManagement.Infrastructure.Identity;
 using TaskManagement.Infrastructure.Persistence;
@@ -56,6 +59,13 @@ public static class DependencyInjection
         services.AddSingleton<IDocumentTextExtractor, DocumentTextExtractor>();
         services.AddSingleton<IAiRateLimiter, AiRateLimiter>();
         AddAiAssistant(services, configuration);
+
+        // Persist Warning+ logs from the app's own code (not framework noise) so operators can see
+        // errors from the admin dashboard instead of grepping server logs.
+        services.AddSingleton(_ => Channel.CreateBounded<ErrorLogEntry>(
+            new BoundedChannelOptions(500) { FullMode = BoundedChannelFullMode.DropOldest }));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, DatabaseLoggerProvider>());
+        services.AddHostedService<ErrorLogDispatcher>();
 
         return services;
     }

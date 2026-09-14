@@ -12,6 +12,12 @@ export function init(boardElement, dotNetRef) {
         sortables.push(new Sortable(column, {
             group: 'kanban',
             animation: 150,
+            // Touch only: wait for a short press-and-hold before a touch starts a drag, so a normal
+            // scroll swipe through the column isn't immediately hijacked as a card drag. Mouse users
+            // are unaffected (delayOnTouchOnly keeps desktop drag starting instantly).
+            delay: 150,
+            delayOnTouchOnly: true,
+            touchStartThreshold: 5,
             ghostClass: 'kanban-drag-ghost',
             chosenClass: 'kanban-drag-chosen',
             onEnd: async evt => {

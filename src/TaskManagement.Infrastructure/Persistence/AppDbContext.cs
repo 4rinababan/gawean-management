@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaskManagement.Application.Abstractions;
 using TaskManagement.Domain.Automation;
 using TaskManagement.Domain.Common;
+using TaskManagement.Domain.Diagnostics;
 using TaskManagement.Domain.Issues;
 using TaskManagement.Domain.Notifications;
 using TaskManagement.Domain.Organizations;
@@ -37,6 +38,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<Sprint> Sprints => Set<Sprint>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<AutomationRule> AutomationRules => Set<AutomationRule>();
+
+    /// <summary>Global, not tenant-scoped — deliberately outside the per-tenant query filters below.</summary>
+    public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
 
     public IQueryable<TEntity> IgnoringTenantFilter<TEntity>() where TEntity : class
         => Set<TEntity>().IgnoreQueryFilters();
