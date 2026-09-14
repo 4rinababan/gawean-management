@@ -1,0 +1,174 @@
+@page "/admin"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using System.Security.Claims
+@inject AdminService Admin
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>Admin</PageTitle>
+
+@if (_checking)
+{
+    <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+}
+else if (_isAdmin)
+{
+    <PageHeader Title="Admin dashboard" Subtitle="Site-wide view across every workspace." />
+
+    <Tabs Items="_tabs" Active="_active" ActiveChanged="k => _active = k" />
+
+    <div class="mt-6">
+        @if (_active == "overview" && _overview is { } ov)
+        {
+            <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+                <StatTile Label="Users" Value="ov.UserCount" Icon="users" Color="StatTile.Tone.Neutral" Caption="Registered accounts" />
+                <StatTile Label="Workspaces" Value="ov.WorkspaceCount" Icon="squares" Color="StatTile.Tone.Neutral" Caption="Across all users" />
+                <StatTile Label="Issues" Value="ov.IssueCount" Icon="document-text" Color="StatTile.Tone.Neutral" Caption="Total tracked" />
+                <StatTile Label="Errors (24h)" Value="ov.ErrorCount24h" Icon="exclamation-triangle"
+                          Color="@(ov.ErrorCount24h > 0 ? StatTile.Tone.Critical : StatTile.Tone.Good)" Caption="Warning level or higher" />
+            </div>
+        }
+        else if (_active == "users" && _users is { } users)
+        {
+            <Card Padded="false">
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[40rem] text-sm">
+                        <thead class="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400 dark:border-slate-800">
+                            <tr>
+                                <th class="px-4 py-2">Email</th>
+                                <th class="px-4 py-2">Display name</th>
+                                <th class="px-4 py-2">Joined</th>
+                                <th class="px-4 py-2">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                            @foreach (var u in users)
+                            {
+                                <tr @key="u.Id">
+                                    <td class="px-4 py-2.5 text-slate-700 dark:text-slate-200">@u.Email</td>
+                                    <td class="px-4 py-2.5 text-slate-500">@u.DisplayName</td>
+                                    <td class="px-4 py-2.5 text-slate-500">@u.CreatedAt.LocalDateTime.ToString("d MMM yyyy")</td>
+                                    <td class="px-4 py-2.5">
+                                        <div class="flex flex-wrap gap-1">
+                                            @if (u.IsSiteAdmin)
+                                            {
+                                                <Badge Color="Badge.BadgeColor.Purple">Site admin</Badge>
+                                            }
+                                            <Badge Color="@(u.EmailConfirmed ? Badge.BadgeColor.Green : Badge.BadgeColor.Amber)">
+                                                @(u.EmailConfirmed ? "Confirmed" : "Unconfirmed")
+                                            </Badge>
+                                            @if (u.LockedOut)
+                                            {
+                                                <Badge Color="Badge.BadgeColor.Rose">Locked out</Badge>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+        }
+        else if (_active == "workspaces" && _workspaces is { } workspaces)
+        {
+            <Card Padded="false">
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[32rem] text-sm">
+                        <thead class="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400 dark:border-slate-800">
+                            <tr>
+                                <th class="px-4 py-2">Name</th>
+                                <th class="px-4 py-2">Slug</th>
+                                <th class="px-4 py-2">Members</th>
+                                <th class="px-4 py-2">Created</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                            @foreach (var w in workspaces)
+                            {
+                                <tr @key="w.Id">
+                                    <td class="px-4 py-2.5 text-slate-700 dark:text-slate-200">@w.Name</td>
+                                    <td class="px-4 py-2.5 font-mono text-xs text-slate-500">/@w.Slug</td>
+                                    <td class="px-4 py-2.5 text-slate-500">@w.MemberCount</td>
+                                    <td class="px-4 py-2.5 text-slate-500">@w.CreatedAt.LocalDateTime.ToString("d MMM yyyy")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+        }
+        else if (_active == "logs")
+        {
+            @if (_logs is { Count: 0 })
+            {
+                <EmptyState Icon="check-circle" Title="No errors logged"
+                            Description="Nothing at Warning level or higher has been recorded yet." />
+            }
+            else if (_logs is { } logs)
+            {
+                <div class="space-y-2">
+                    @foreach (var log in logs)
+                    {
+                        <Card Class="!p-0" Padded="false">
+                            <div class="p-3">
+                                <div class="flex flex-wrap items-center gap-2 text-xs">
+                                    <Badge Color="@(log.Level == "Critical" ? Badge.BadgeColor.Rose : log.Level == "Error" ? Badge.BadgeColor.Rose : Badge.BadgeColor.Amber)">@log.Level</Badge>
+                                    <span class="font-mono text-slate-400">@log.Category</span>
+                                    <span class="text-slate-400">@log.CreatedAt.LocalDateTime.ToString("d MMM yyyy HH:mm:ss")</span>
+                                </div>
+                                <p class="mt-1.5 text-sm text-slate-700 dark:text-slate-200">@log.Message</p>
+                                @if (!string.IsNullOrEmpty(log.Exception))
+                                {
+                                    <details class="mt-1.5">
+                                        <summary class="cursor-pointer text-xs text-brand-600 hover:underline">Stack trace</summary>
+                                        <pre class="mt-1.5 max-h-64 overflow-auto rounded-lg bg-slate-50 p-2.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">@log.Exception</pre>
+                                    </details>
+                                }
+                            </div>
+                        </Card>
+                    }
+                </div>
+            }
+        }
+    </div>
+}
+
+@code {
+    private bool _checking = true;
+    private bool _isAdmin;
+    private string _active = "overview";
+
+    private AdminOverviewDto? _overview;
+    private IReadOnlyList<AdminUserDto>? _users;
+    private IReadOnlyList<AdminWorkspaceDto>? _workspaces;
+    private IReadOnlyList<AdminErrorLogDto>? _logs;
+
+    private static readonly IReadOnlyList<Tabs.TabItem> _tabs =
+    [
+        new("overview", "Overview"),
+        new("users", "Users"),
+        new("workspaces", "Workspaces"),
+        new("logs", "Error logs"),
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = (await AuthState.GetAuthenticationStateAsync()).User;
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        _isAdmin = await Admin.IsSiteAdminAsync(userId);
+        _checking = false;
+
+        if (!_isAdmin)
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+
+        _overview = await Admin.GetOverviewAsync();
+        _users = await Admin.GetUsersAsync();
+        _workspaces = await Admin.GetWorkspacesAsync();
+        _logs = await Admin.GetErrorLogsAsync();
+    }
+}

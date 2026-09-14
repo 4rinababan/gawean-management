@@ -37,6 +37,7 @@ builder.Services.AddScoped<IAppUrls, AppUrls>();
 builder.Services.AddSingleton<INotificationRealtime, SignalRNotificationRealtime>();
 builder.Services.AddScoped<TaskManagement.Web.Components.Ui.ToastService>();
 builder.Services.AddScoped<TaskManagement.Web.Components.Ui.TourState>();
+builder.Services.AddScoped<AdminService>();
 
 // --- Authentication --------------------------------------------------------------
 var authBuilder = builder.Services.AddAuthentication(options =>
