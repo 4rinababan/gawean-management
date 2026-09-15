@@ -102,7 +102,11 @@ if (!string.IsNullOrWhiteSpace(keyPath))
 }
 
 // --- SignalR / health / misc ----------------------------------------------------
-builder.Services.AddSignalR();
+// Blazor Server's circuit hub defaults to a 32KB SignalR message size limit — InputFile (avatar
+// upload, issue attachments up to 25MB, inline description images up to 10MB) streams the file over
+// that same connection, so without raising this the circuit hard-crashes the instant a real-sized
+// file is selected, before the upload handler's own try/catch ever runs.
+builder.Services.AddSignalR(options => options.MaximumReceiveMessageSize = 30 * 1024 * 1024);
 builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, NameIdentifierUserIdProvider>();
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
