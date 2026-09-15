@@ -1,0 +1,31 @@
+@namespace TaskManagement.Web.Components.Pages.App
+
+<div>
+    <a href="@($"/{Slug}/wiki/{Node.Id}")" class="@NavClass" @key="Node.Id">
+        <Icon Name="document-text" Class="h-3.5 w-3.5 shrink-0" />
+        <span class="truncate">@Node.Title</span>
+    </a>
+    @if (Children.Count > 0)
+    {
+        <div class="ml-3 space-y-0.5 border-l border-slate-200 pl-2 dark:border-slate-700">
+            @foreach (var child in Children)
+            {
+                <WikiTreeNode Slug="@Slug" Node="child" AllNodes="AllNodes" ActivePageId="ActivePageId" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Slug { get; set; } = "";
+    [Parameter, EditorRequired] public WikiPageSummaryDto Node { get; set; } = default!;
+    [Parameter, EditorRequired] public IReadOnlyList<WikiPageSummaryDto> AllNodes { get; set; } = [];
+    [Parameter] public Guid? ActivePageId { get; set; }
+
+    private List<WikiPageSummaryDto> Children => AllNodes.Where(n => n.ParentPageId == Node.Id).ToList();
+
+    private string NavClass => "flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition " +
+        (Node.Id == ActivePageId
+            ? "bg-brand-50 font-medium text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
+            : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800");
+}

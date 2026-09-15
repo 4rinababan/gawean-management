@@ -11,6 +11,7 @@
     <div>
         <a href="@($"/{Slug}")" class="@NavClass(IsExact($"/{Slug}"))"><Icon Name="home" Class="h-4 w-4" /> Overview</a>
         <a href="@($"/{Slug}/members")" class="@NavClass(Contains("/members"))"><Icon Name="users" Class="h-4 w-4" /> Members</a>
+        <a href="@($"/{Slug}/wiki")" class="@NavClass(Contains("/wiki"))"><Icon Name="document-text" Class="h-4 w-4" /> Wiki</a>
         @if (CanManageWorkspace)
         {
             <a href="@($"/{Slug}/settings")" class="@NavClass(Contains("/settings"))"><Icon Name="cog" Class="h-4 w-4" /> Settings</a>

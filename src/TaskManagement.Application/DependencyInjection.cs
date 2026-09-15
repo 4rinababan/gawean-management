@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<AttachmentService>();
         services.AddScoped<DashboardService>();
         services.AddScoped<AutomationRuleService>();
+        services.AddScoped<WikiService>();
 
         return services;
     }

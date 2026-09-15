@@ -11,6 +11,7 @@ using TaskManagement.Domain.Notifications;
 using TaskManagement.Domain.Organizations;
 using TaskManagement.Domain.Projects;
 using TaskManagement.Domain.Sprints;
+using TaskManagement.Domain.Wiki;
 using TaskManagement.Infrastructure.Identity;
 
 namespace TaskManagement.Infrastructure.Persistence;
@@ -38,6 +39,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<Sprint> Sprints => Set<Sprint>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<AutomationRule> AutomationRules => Set<AutomationRule>();
+    public DbSet<WikiPage> WikiPages => Set<WikiPage>();
 
     /// <summary>Global, not tenant-scoped — deliberately outside the per-tenant query filters below.</summary>
     public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
@@ -78,6 +80,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
         builder.Entity<Sprint>().HasQueryFilter(e => e.OrganizationId == TenantId);
         builder.Entity<Notification>().HasQueryFilter(e => e.OrganizationId == TenantId);
         builder.Entity<AutomationRule>().HasQueryFilter(e => e.OrganizationId == TenantId);
+        builder.Entity<WikiPage>().HasQueryFilter(e => e.OrganizationId == TenantId);
     }
 
     public override int SaveChanges()

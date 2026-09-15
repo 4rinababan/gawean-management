@@ -5,6 +5,7 @@ using TaskManagement.Domain.Notifications;
 using TaskManagement.Domain.Organizations;
 using TaskManagement.Domain.Projects;
 using TaskManagement.Domain.Sprints;
+using TaskManagement.Domain.Wiki;
 
 namespace TaskManagement.Application.Abstractions;
 
@@ -38,6 +39,7 @@ public interface IAppDbContext : IAsyncDisposable
     DbSet<Sprint> Sprints { get; }
     DbSet<Notification> Notifications { get; }
     DbSet<AutomationRule> AutomationRules { get; }
+    DbSet<WikiPage> WikiPages { get; }
 
     /// <summary>Runs the given query with all tenant query filters disabled — for cross-tenant lookups such as redeeming an invitation.</summary>
     IQueryable<TEntity> IgnoringTenantFilter<TEntity>() where TEntity : class;

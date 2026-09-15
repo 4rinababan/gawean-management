@@ -13,6 +13,7 @@ public enum OrgPermission
     ManageProjects,
     ManageMembers,
     ManageOrganization,
+    ManageWiki,
 }
 
 /// <summary>The single source of truth for what each <see cref="OrgRole"/> may do within an organization.</summary>
@@ -31,6 +32,7 @@ public static class RolePermissions
             OrgPermission.EditIssue,
             OrgPermission.CommentOnIssue,
             OrgPermission.ManageSprints,
+            OrgPermission.ManageWiki,
         ],
         [OrgRole.Admin] =
         [
@@ -43,6 +45,7 @@ public static class RolePermissions
             OrgPermission.ManageProjects,
             OrgPermission.ManageMembers,
             OrgPermission.ManageOrganization,
+            OrgPermission.ManageWiki,
         ],
     };
 
