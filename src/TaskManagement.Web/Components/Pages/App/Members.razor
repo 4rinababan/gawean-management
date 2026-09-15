@@ -82,8 +82,8 @@ else
             <ul class="divide-y divide-slate-100 dark:divide-slate-800">
                 @foreach (var i in _pending)
                 {
-                    <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm" @key="i.Id">
-                        <span>@i.Email <Badge>@i.Role</Badge></span>
+                    <li class="flex flex-col gap-2 px-4 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between" @key="i.Id">
+                        <span class="min-w-0 truncate">@i.Email <Badge>@i.Role</Badge></span>
                         <span class="flex items-center gap-3 text-xs text-slate-400">
                             <span>expires @i.ExpiresAt.LocalDateTime.ToString("d")</span>
                             <button class="text-brand-600 hover:underline" @onclick="() => CopyLink(i.AcceptUrl)">Copy link</button>

@@ -28,6 +28,14 @@
     font-family: var(--font-sans);
   }
 
+  /* Safety net for mobile: one element rendering a hair wider than the viewport (a long unbroken
+     string, a fixed-width third-party widget) must never make the whole page pan sideways. Anything
+     that needs its own horizontal scroll region (ProjectTabs, code blocks, tables) opts in per-element
+     with overflow-x-auto, which still works fine nested inside this. */
+  html, body {
+    @apply overflow-x-hidden;
+  }
+
   body {
     @apply bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200;
   }
