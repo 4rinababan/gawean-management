@@ -15,13 +15,18 @@
     [Parameter]
     public string? Message { get; set; }
 
+    // Nullable: this is used from pages that can be @rendermode Interactive, where a circuit
+    // reconnect re-runs OnInitialized with no HTTP request behind it, so no cascaded HttpContext.
     [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
+    private HttpContext? HttpContext { get; set; }
 
     private string? DisplayMessage => Message ?? messageFromCookie;
 
     protected override void OnInitialized()
     {
+        if (HttpContext is null)
+            return;
+
         messageFromCookie = HttpContext.Request.Cookies[IdentityRedirectManager.StatusCookieName];
 
         if (messageFromCookie is not null)

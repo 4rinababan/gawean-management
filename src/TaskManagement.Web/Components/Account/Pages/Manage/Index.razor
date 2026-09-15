@@ -10,6 +10,7 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ProfileService Profile
 @inject ToastService Toasts
+@inject AuthenticationStateProvider AuthState
 
 <PageTitle>Profile</PageTitle>
 
@@ -69,8 +70,11 @@
     private string? phoneNumber;
     private bool _uploading;
 
+    // Nullable, not the usual "= default!": unlike a static SSR page, this one is interactive, so it
+    // can be re-initialized on a circuit reconnect (e.g. the browser drops the SignalR connection
+    // mid-upload and reattaches) — that path carries no HTTP request, so no cascaded HttpContext.
     [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
+    private HttpContext? HttpContext { get; set; }
 
     [SupplyParameterFromForm]
     private InputModel Input { get; set; } = default!;
@@ -79,10 +83,14 @@
     {
         Input ??= new();
 
-        user = await UserManager.GetUserAsync(HttpContext.User);
+        // AuthenticationStateProvider stays valid across a reconnect; HttpContext doesn't, so user
+        // resolution goes through it instead of HttpContext.User.
+        var principal = (await AuthState.GetAuthenticationStateAsync()).User;
+        user = await UserManager.GetUserAsync(principal);
         if (user is null)
         {
-            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            if (HttpContext is not null)
+                RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
             return;
         }
 
@@ -129,7 +137,8 @@
     {
         if (user is null)
         {
-            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            if (HttpContext is not null)
+                RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
             return;
         }
 
@@ -138,13 +147,19 @@
             var setPhoneResult = await UserManager.SetPhoneNumberAsync(user, Input.PhoneNumber);
             if (!setPhoneResult.Succeeded)
             {
-                RedirectManager.RedirectToCurrentPageWithStatus("Error: Failed to set phone number.", HttpContext);
+                if (HttpContext is not null)
+                    RedirectManager.RedirectToCurrentPageWithStatus("Error: Failed to set phone number.", HttpContext);
+                else
+                    Toasts.Error("Failed to set phone number.");
                 return;
             }
         }
 
         await SignInManager.RefreshSignInAsync(user);
-        RedirectManager.RedirectToCurrentPageWithStatus("Your profile has been updated", HttpContext);
+        if (HttpContext is not null)
+            RedirectManager.RedirectToCurrentPageWithStatus("Your profile has been updated", HttpContext);
+        else
+            Toasts.Success("Your profile has been updated.");
     }
 
     private sealed class InputModel
