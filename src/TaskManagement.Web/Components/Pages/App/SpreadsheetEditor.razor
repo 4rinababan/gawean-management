@@ -1,7 +1,28 @@
 @namespace TaskManagement.Web.Components.Pages.App
 @using TaskManagement.Domain.Wiki.Spreadsheet
+@implements IAsyncDisposable
+@inject IJSRuntime JS
 
 <div class="space-y-2">
+    @if (!ReadOnly)
+    {
+        <div class="flex flex-wrap items-center gap-1 border-b border-slate-200 pb-2 dark:border-slate-700">
+            <button type="button" class="tm-page-nav" disabled="@(_lastActiveCell is null)" @onclick="CutAsync">Cut</button>
+            <button type="button" class="tm-page-nav" disabled="@(_lastActiveCell is null)" @onclick="CopyAsync">Copy</button>
+            <button type="button" class="tm-page-nav" disabled="@(_lastActiveCell is null)" @onclick="PasteAsync">Paste</button>
+            <span class="mx-1 h-4 w-px bg-slate-200 dark:bg-slate-700"></span>
+            <button type="button" class="tm-page-nav" @onclick="() => InsertRow(before: true)" title="Insert row above the selected cell">+Row ↑</button>
+            <button type="button" class="tm-page-nav" @onclick="() => InsertRow(before: false)" title="Insert row below the selected cell">+Row ↓</button>
+            <button type="button" class="tm-page-nav" disabled="@(ActiveSheet.RowCount <= 1)" @onclick="DeleteRow" title="Delete the selected cell's row">−Row</button>
+            <span class="mx-1 h-4 w-px bg-slate-200 dark:bg-slate-700"></span>
+            <button type="button" class="tm-page-nav" @onclick="() => InsertColumn(before: true)" title="Insert column left of the selected cell">+Col ←</button>
+            <button type="button" class="tm-page-nav" @onclick="() => InsertColumn(before: false)" title="Insert column right of the selected cell">+Col →</button>
+            <button type="button" class="tm-page-nav" disabled="@(ActiveSheet.ColumnCount <= 1)" @onclick="DeleteColumn" title="Delete the selected cell's column">−Col</button>
+            <span class="mx-1 h-4 w-px bg-slate-200 dark:bg-slate-700"></span>
+            <button type="button" class="tm-page-nav" disabled="@(_lastActiveCell is null)" @onclick="ClearActiveCellAsync">Clear</button>
+        </div>
+    }
+
     <div class="overflow-auto rounded-lg border border-slate-200 dark:border-slate-700" style="max-height: 32rem">
         <table class="border-collapse text-sm">
             <thead>
@@ -37,7 +58,7 @@
                                 else
                                 {
                                     var value = FormulaEngine.Evaluate(cellRef, ActiveSheet);
-                                    <div class="@($"h-7 min-w-[6rem] truncate px-1.5 py-1 leading-5 {(!ReadOnly ? "cursor-cell hover:bg-slate-50 dark:hover:bg-slate-800" : "")} {(value.IsError ? "text-rose-600 dark:text-rose-400" : "text-slate-700 dark:text-slate-200")}")"
+                                    <div class="@($"h-7 min-w-[6rem] truncate px-1.5 py-1 leading-5 {(!ReadOnly ? "cursor-cell hover:bg-slate-50 dark:hover:bg-slate-800" : "")} {(!ReadOnly && _activeCell is null && _lastActiveCell == cellRef ? "ring-1 ring-inset ring-brand-300" : "")} {(value.IsError ? "text-rose-600 dark:text-rose-400" : "text-slate-700 dark:text-slate-200")}")"
                                          @onclick="() => Activate(cellRef)">
                                         @value.ToString()
                                     </div>
@@ -88,8 +109,11 @@
 
     private int _activeSheetIndex;
     private string? _activeCell;
+    private string? _lastActiveCell;
     private ElementReference? _activeInputRef;
     private bool _focusPending;
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<SpreadsheetEditor>? _ref;
 
     private SpreadsheetSheet ActiveSheet => Workbook.Sheets[Math.Clamp(_activeSheetIndex, 0, Workbook.Sheets.Count - 1)];
 
@@ -98,7 +122,14 @@
         if (_focusPending && _activeInputRef is { } input)
         {
             _focusPending = false;
-            try { await input.FocusAsync(); } catch (JSDisconnectedException) { }
+            try
+            {
+                await input.FocusAsync();
+                _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/spreadsheet.js");
+                _ref ??= DotNetObjectReference.Create(this);
+                await _module.InvokeVoidAsync("attachPasteListener", input, _ref);
+            }
+            catch (JSDisconnectedException) { }
         }
     }
 
@@ -108,6 +139,7 @@
     {
         if (ReadOnly) return;
         _activeCell = cellRef;
+        _lastActiveCell = cellRef;
         _focusPending = true;
     }
 
@@ -154,4 +186,149 @@
         (index == _activeSheetIndex
             ? "border-slate-200 bg-white text-brand-700 dark:border-slate-700 dark:bg-slate-900 dark:text-brand-300"
             : "border-transparent text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800");
+
+    // --- Clipboard: paste from Excel ------------------------------------------------------------
+
+    /// <summary>Called from spreadsheet.js when a multi-cell paste (tab/newline-delimited text — what
+    /// Excel puts on the clipboard) is intercepted on the active cell's input. Fans the pasted grid out
+    /// starting at that cell, growing the sheet if the pasted block runs past its current bounds.</summary>
+    [JSInvokable]
+    public async Task OnGridPasted(string[][] grid)
+    {
+        var anchor = _lastActiveCell ?? _activeCell;
+        if (anchor is null || grid.Length == 0 || !CellReference.TryParse(anchor, out var startCol, out var startRow))
+            return;
+
+        var maxRow = startRow + grid.Length - 1;
+        var maxCol = startCol + grid.Max(r => r.Length) - 1;
+        if (maxRow >= ActiveSheet.RowCount) ActiveSheet.RowCount = maxRow + 1;
+        if (maxCol >= ActiveSheet.ColumnCount) ActiveSheet.ColumnCount = maxCol + 1;
+
+        for (var r = 0; r < grid.Length; r++)
+        {
+            for (var c = 0; c < grid[r].Length; c++)
+            {
+                var cellRef = CellReference.ToReference(startCol + c, startRow + r);
+                var value = grid[r][c];
+                if (string.IsNullOrEmpty(value)) ActiveSheet.Cells.Remove(cellRef);
+                else ActiveSheet.Cells[cellRef] = value;
+            }
+        }
+
+        _activeCell = null;
+        await OnChanged.InvokeAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>Toolbar Paste button — an alternative to Ctrl+V for when the active cell doesn't have
+    /// native paste focus (e.g. right after clicking Paste itself). Uses the async Clipboard API.</summary>
+    private async Task PasteAsync()
+    {
+        if (_lastActiveCell is null) return;
+        _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/spreadsheet.js");
+        var grid = await _module.InvokeAsync<string[][]?>("readClipboardGrid");
+        if (grid is { Length: > 0 })
+            await OnGridPasted(grid);
+    }
+
+    private async Task CopyAsync()
+    {
+        if (_lastActiveCell is not { } cellRef) return;
+        _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/spreadsheet.js");
+        await _module.InvokeVoidAsync("writeClipboardText", GetRawValue(cellRef));
+    }
+
+    private async Task CutAsync()
+    {
+        if (_lastActiveCell is not { } cellRef) return;
+        await CopyAsync();
+        ActiveSheet.Cells.Remove(cellRef);
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task ClearActiveCellAsync()
+    {
+        if (_lastActiveCell is not { } cellRef) return;
+        ActiveSheet.Cells.Remove(cellRef);
+        await OnChanged.InvokeAsync();
+    }
+
+    // --- Structural edits: insert/delete row or column, re-keying every affected cell -----------
+
+    private async Task InsertRow(bool before)
+    {
+        var atRow = _lastActiveCell is { } cell && CellReference.TryParse(cell, out _, out var row) ? row : 0;
+        var insertAt = before ? atRow : atRow + 1;
+        ActiveSheet.Cells = ShiftCells(ActiveSheet.Cells, insertRowAt: insertAt);
+        ActiveSheet.RowCount++;
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task DeleteRow()
+    {
+        if (ActiveSheet.RowCount <= 1) return;
+        var atRow = _lastActiveCell is { } cell && CellReference.TryParse(cell, out _, out var row) ? row : 0;
+        ActiveSheet.Cells = ShiftCells(ActiveSheet.Cells, removeRow: atRow);
+        ActiveSheet.RowCount--;
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task InsertColumn(bool before)
+    {
+        var atCol = _lastActiveCell is { } cell && CellReference.TryParse(cell, out var col, out _) ? col : 0;
+        var insertAt = before ? atCol : atCol + 1;
+        ActiveSheet.Cells = ShiftCells(ActiveSheet.Cells, insertColAt: insertAt);
+        ActiveSheet.ColumnCount++;
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task DeleteColumn()
+    {
+        if (ActiveSheet.ColumnCount <= 1) return;
+        var atCol = _lastActiveCell is { } cell && CellReference.TryParse(cell, out var col, out _) ? col : 0;
+        ActiveSheet.Cells = ShiftCells(ActiveSheet.Cells, removeCol: atCol);
+        ActiveSheet.ColumnCount--;
+        await OnChanged.InvokeAsync();
+    }
+
+    /// <summary>Rebuilds a cell dictionary with every reference re-keyed for one row/column insert or
+    /// removal. Only one of the four operations is ever passed at a time.</summary>
+    private static Dictionary<string, string> ShiftCells(
+        Dictionary<string, string> cells,
+        int? removeRow = null, int? insertRowAt = null,
+        int? removeCol = null, int? insertColAt = null)
+    {
+        var result = new Dictionary<string, string>();
+        foreach (var (key, value) in cells)
+        {
+            if (!CellReference.TryParse(key, out var col, out var row)) continue;
+
+            if (removeRow is { } rr)
+            {
+                if (row == rr) continue;
+                if (row > rr) row--;
+            }
+            if (insertRowAt is { } ir && row >= ir) row++;
+
+            if (removeCol is { } rc)
+            {
+                if (col == rc) continue;
+                if (col > rc) col--;
+            }
+            if (insertColAt is { } ic && col >= ic) col++;
+
+            result[CellReference.ToReference(col, row)] = value;
+        }
+        return result;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_module is not null) await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException) { }
+        _ref?.Dispose();
+    }
 }
