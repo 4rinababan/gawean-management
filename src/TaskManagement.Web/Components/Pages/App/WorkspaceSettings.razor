@@ -36,9 +36,9 @@ else
                     <p class="mt-1 text-xs text-slate-400">The URL is fixed — links your team has saved depend on it.</p>
                 </Field>
             </div>
-            <div class="mt-6 flex justify-end gap-2">
-                <a href="@($"/{Slug}")"><Button Variant="Button.ButtonVariant.Secondary">Cancel</Button></a>
-                <Button Type="submit" Loading="_busy">Save changes</Button>
+            <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <a href="@($"/{Slug}")"><Button Variant="Button.ButtonVariant.Secondary" FullWidth="true">Cancel</Button></a>
+                <Button Type="submit" Loading="_busy" FullWidth="true">Save changes</Button>
             </div>
         </EditForm>
     </Card>

@@ -40,8 +40,8 @@ else
             @foreach (var s in _sprints)
             {
                 <Card>
-                    <div class="flex flex-wrap items-start justify-between gap-3">
-                        <div>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="min-w-0">
                             <div class="flex items-center gap-2">
                                 <h3 class="font-semibold text-slate-900 dark:text-slate-100">@s.Name</h3>
                                 <Badge Color="@StateColor(s.State)">@s.State</Badge>

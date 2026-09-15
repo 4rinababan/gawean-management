@@ -1,7 +1,10 @@
 @namespace TaskManagement.Web.Components.Ui
 
-<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-    <div>
+@* flex-wrap + justify-between can leave a wrapped second item effectively unreachable at the
+   viewport edge instead of dropping to its own line — flex-col/sm:flex-row is the reliable version
+   of "stack on mobile, sit side-by-side from sm up" for a title-plus-actions header. *@
+<div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div class="min-w-0">
         @if (Breadcrumb is not null)
         {
             <div class="mb-1 text-xs font-medium text-slate-400">@Breadcrumb</div>
@@ -9,7 +12,7 @@
         <h1 class="text-xl font-semibold text-slate-900 dark:text-slate-100">@Title</h1>
         @if (Subtitle is not null)
         {
-            <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">@Subtitle</p>
+            <p class="mt-0.5 w-full text-sm text-slate-500 dark:text-slate-400">@Subtitle</p>
         }
     </div>
     @if (Actions is not null)
