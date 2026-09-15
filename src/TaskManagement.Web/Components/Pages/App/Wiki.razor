@@ -1,0 +1,241 @@
+@page "/{Slug}/wiki"
+@page "/{Slug}/wiki/{PageId:guid}"
+@rendermode InteractiveServer
+@layout OrgLayout
+@attribute [Authorize]
+@inherits OrgPageBase
+@inject WikiService WikiSvc
+@inject ToastService Toasts
+@inject NavigationManager NavManager
+
+<PageTitle>@(_page?.Title ?? "Wiki")</PageTitle>
+
+<PageHeader Title="Wiki" Subtitle="Documentation for this workspace.">
+    <Actions>
+        @if (CanManage)
+        {
+            <Button Icon="plus" OnClick="() => BeginCreate(null)">New page</Button>
+        }
+    </Actions>
+</PageHeader>
+
+<div class="grid gap-6 lg:grid-cols-[16rem_1fr]">
+    <div>
+        @if (_tree is null)
+        {
+            <div class="flex justify-center py-8"><Spinner Class="h-6 w-6 text-brand-500" /></div>
+        }
+        else if (_tree.Count == 0)
+        {
+            <p class="px-2 text-sm text-slate-400">No pages yet.</p>
+        }
+        else
+        {
+            <nav class="space-y-0.5">
+                @foreach (var root in _tree.Where(n => n.ParentPageId is null))
+                {
+                    <WikiTreeNode Slug="@Slug" Node="root" AllNodes="_tree" ActivePageId="PageId" />
+                }
+            </nav>
+        }
+    </div>
+
+    <div class="min-w-0">
+        @if (PageId is null)
+        {
+            <EmptyState Icon="document-text" Title="Select a page"
+                        Description="Pick a page from the list on the left, or create a new one.">
+                <Actions>
+                    @if (CanManage)
+                    {
+                        <Button OnClick="() => BeginCreate(null)">New page</Button>
+                    }
+                </Actions>
+            </EmptyState>
+        }
+        else if (_page is null)
+        {
+            <div class="flex justify-center py-16"><Spinner Class="h-8 w-8 text-brand-500" /></div>
+        }
+        else if (_editing)
+        {
+            <Card>
+                <Field Label="Title">
+                    <input class="tm-input" @bind="_editTitle" @bind:event="oninput" />
+                </Field>
+                <div class="mt-4">
+                    <span class="tm-label mb-0">Content</span>
+                    <RichTextEditor Value="@_editContent" ValueChanged="v => _editContent = v" />
+                </div>
+                <div class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <Button Variant="Button.ButtonVariant.Secondary" OnClick="CancelEdit" FullWidth="true">Cancel</Button>
+                    <Button Loading="_saving" OnClick="SaveAsync" FullWidth="true">Save</Button>
+                </div>
+            </Card>
+        }
+        else
+        {
+            <div class="mb-3 flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    @if (_page.ParentTitle is not null)
+                    {
+                        <a href="@($"/{Slug}/wiki/{_page.ParentPageId}")" class="mb-1 inline-flex items-center gap-1 text-xs text-slate-400 hover:underline">
+                            <Icon Name="arrow-left" Class="h-3 w-3" /> @_page.ParentTitle
+                        </a>
+                    }
+                    <h1 class="text-xl font-semibold text-slate-900 dark:text-slate-100">@_page.Title</h1>
+                    <p class="mt-0.5 text-xs text-slate-400">
+                        Created by @_page.CreatedByDisplayName
+                        @if (_page.LastEditedByDisplayName is not null)
+                        {
+                            <span> · last edited by @_page.LastEditedByDisplayName, @_page.UpdatedAt.LocalDateTime.ToString("d MMM yyyy")</span>
+                        }
+                    </p>
+                </div>
+                @if (CanManage)
+                {
+                    <div class="flex shrink-0 gap-2">
+                        <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => BeginCreate(PageId)">Add child</Button>
+                        <Button Variant="Button.ButtonVariant.Secondary" OnClick="BeginEdit">Edit</Button>
+                        <Button Variant="Button.ButtonVariant.Danger" Icon="trash" OnClick="ConfirmDeleteAsync" />
+                    </div>
+                }
+            </div>
+            <Card>
+                @if (string.IsNullOrWhiteSpace(_page.Content))
+                {
+                    <p class="text-sm text-slate-400">This page is empty.</p>
+                }
+                else
+                {
+                    <RichTextView Html="@_page.Content" />
+                }
+            </Card>
+        }
+    </div>
+</div>
+
+<Modal Open="_showCreate" OpenChanged="v => _showCreate = v" Title="New page">
+    <Field Label="Title" Required>
+        <input class="tm-input" @bind="_newTitle" @bind:event="oninput" placeholder="e.g. Onboarding guide" />
+    </Field>
+    <div class="mt-4 flex justify-end gap-2">
+        <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => _showCreate = false">Cancel</Button>
+        <Button Loading="_saving" Disabled="@string.IsNullOrWhiteSpace(_newTitle)" OnClick="CreateAsync">Create</Button>
+    </div>
+</Modal>
+
+<ConfirmDialog Open="_confirmDelete" OpenChanged="v => _confirmDelete = v" Destructive
+               Title="Delete page"
+               Message="@DeleteMessage"
+               ConfirmText="Delete" OnConfirm="DeleteAsync" />
+
+@code {
+    [Parameter] public Guid? PageId { get; set; }
+
+    private IReadOnlyList<WikiPageSummaryDto>? _tree;
+    private WikiPageDto? _page;
+    private bool _editing;
+    private string _editTitle = "";
+    private string? _editContent;
+    private bool _saving;
+
+    private bool _showCreate;
+    private string _newTitle = "";
+    private Guid? _newParentId;
+
+    private bool _confirmDelete;
+    private int _childCountToDelete;
+
+    private bool CanManage => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.ManageWiki);
+
+    private string DeleteMessage => _childCountToDelete > 0
+        ? $"Delete \"{_page?.Title}\" and its {_childCountToDelete} sub-page{(_childCountToDelete == 1 ? "" : "s")}? This cannot be undone."
+        : $"Delete \"{_page?.Title}\"? This cannot be undone.";
+
+    /// <summary>
+    /// Runs on every navigation between pages in this tree too, not just the first load — Wiki.razor
+    /// matches two routes ("/wiki" and "/wiki/{PageId}"), so clicking a different tree node is a
+    /// parameter change on the same component instance, not a remount. The tree itself only needs
+    /// fetching once; CreateAsync/SaveAsync/DeleteAsync refresh it explicitly when it actually changes.
+    /// </summary>
+    protected override async Task OnTenantReadyAsync()
+    {
+        _tree ??= await WikiSvc.GetTreeAsync();
+        await LoadPageAsync();
+    }
+
+    private async Task LoadPageAsync()
+    {
+        _editing = false;
+        _page = PageId is { } id ? await WikiSvc.GetAsync(id) : null;
+    }
+
+    private void BeginCreate(Guid? parentId)
+    {
+        _newParentId = parentId;
+        _newTitle = "";
+        _showCreate = true;
+    }
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newTitle)) return;
+        _saving = true;
+        try
+        {
+            var created = await WikiSvc.CreateAsync(new CreateWikiPageRequest { Title = _newTitle, ParentPageId = _newParentId });
+            _showCreate = false;
+            _tree = await WikiSvc.GetTreeAsync();
+            NavManager.NavigateTo($"/{Slug}/wiki/{created.Id}");
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _saving = false; }
+    }
+
+    private void BeginEdit()
+    {
+        if (_page is null) return;
+        _editTitle = _page.Title;
+        _editContent = _page.Content;
+        _editing = true;
+    }
+
+    private void CancelEdit() => _editing = false;
+
+    private async Task SaveAsync()
+    {
+        if (_page is null || string.IsNullOrWhiteSpace(_editTitle)) return;
+        _saving = true;
+        try
+        {
+            await WikiSvc.UpdateAsync(_page.Id, new UpdateWikiPageRequest { Title = _editTitle, Content = _editContent });
+            _tree = await WikiSvc.GetTreeAsync();
+            await LoadPageAsync();
+            Toasts.Success("Page saved.");
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _saving = false; }
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (_page is null) return;
+        _childCountToDelete = await WikiSvc.CountChildrenAsync(_page.Id);
+        _confirmDelete = true;
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (_page is null) return;
+        try
+        {
+            var parentId = _page.ParentPageId;
+            await WikiSvc.DeleteAsync(_page.Id);
+            Toasts.Success("Page deleted.");
+            NavManager.NavigateTo(parentId is { } pid ? $"/{Slug}/wiki/{pid}" : $"/{Slug}/wiki");
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _confirmDelete = false; }
+    }
+}
