@@ -11,7 +11,12 @@ public sealed class WikiPageConfiguration : IEntityTypeConfiguration<WikiPage>
         builder.ToTable("wiki_pages");
         builder.HasKey(w => w.Id);
         builder.Property(w => w.Title).HasMaxLength(200).IsRequired();
-        builder.Property(w => w.Content).HasMaxLength(50000);
+
+        // No HasMaxLength: unlike an issue description, a wiki page is meant to hold a full document —
+        // this maps to Postgres's unbounded "text" column instead of a capped varchar. A pasted document
+        // with several tables already blew past a 50,000-char cap and failed to save with an opaque
+        // DbUpdateException, which is what prompted removing the limit.
+        builder.Property(w => w.Content).HasColumnType("text");
         builder.Property(w => w.CreatedByUserId).HasMaxLength(450).IsRequired();
         builder.Property(w => w.LastEditedByUserId).HasMaxLength(450);
         builder.HasIndex(w => new { w.OrganizationId, w.ParentPageId });
