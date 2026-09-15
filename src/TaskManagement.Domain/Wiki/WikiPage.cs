@@ -33,10 +33,16 @@ public class WikiPage : Entity, ITenantScoped
 
     public string? LastEditedByUserId { get; private set; }
 
+    /// <summary>The issue this page documents, if any — at most one page links to a given issue
+    /// (enforced by the service, not the schema: setting a second page's IssueId clears the first's).</summary>
+    public Guid? IssueId { get; private set; }
+
     public void Update(string title, string? content, string editedByUserId)
     {
         Title = Guard.NotBlank(title, nameof(title));
         Content = content;
         LastEditedByUserId = Guard.NotBlank(editedByUserId, nameof(editedByUserId));
     }
+
+    public void LinkToIssue(Guid? issueId) => IssueId = issueId;
 }

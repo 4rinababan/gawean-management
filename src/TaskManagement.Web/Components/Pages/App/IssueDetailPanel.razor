@@ -6,6 +6,7 @@
 @inject OrganizationService Organizations
 @inject SprintService SprintSvc
 @inject ProjectService Projects
+@inject WikiService WikiSvc
 @inject ToastService Toasts
 @inject ICurrentUser CurrentUser
 @inject ITenantContext Tenant
@@ -259,6 +260,35 @@ else
                             }
                         </select>
                     </div>
+                    <div>
+                        <p class="tm-label">Wiki page</p>
+                        @if (_linkedWikiPage is { } linked)
+                        {
+                            <div class="flex items-center justify-between gap-2">
+                                <a href="@($"/{Slug}/wiki/{linked.Id}")" class="inline-flex min-w-0 items-center gap-1.5 truncate text-sm text-brand-600 hover:underline dark:text-brand-400">
+                                    <Icon Name="document-text" Class="h-4 w-4 shrink-0" /> <span class="truncate">@linked.Title</span>
+                                </a>
+                                @if (CanManageWiki)
+                                {
+                                    <button type="button" class="shrink-0 text-xs text-rose-500 hover:underline" @onclick="() => LinkWikiPageAsync(null)">Unlink</button>
+                                }
+                            </div>
+                        }
+                        else if (CanManageWiki)
+                        {
+                            <select class="tm-select" @onchange="e => LinkWikiPageAsync(Guid.TryParse(e.Value?.ToString(), out var v) ? v : null)">
+                                <option value="">No page linked</option>
+                                @foreach (var p in _wikiPages)
+                                {
+                                    <option value="@p.Id">@p.Title</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <p class="text-sm text-slate-400">None</p>
+                        }
+                    </div>
                     <div class="flex items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
                         <Avatar Name="@_issue.ReporterDisplayName" Color="@_issue.ReporterAvatarColor" UserId="@_issue.ReporterUserId" Size="xs" />
                         <div class="text-xs text-slate-400">
@@ -332,6 +362,8 @@ else
     private IssueDetailDto? _issue;
     private IReadOnlyList<OrganizationMemberDto> _members = [];
     private IReadOnlyList<SprintDto> _sprints = [];
+    private IReadOnlyList<WikiPageSummaryDto> _wikiPages = [];
+    private WikiPageSummaryDto? _linkedWikiPage;
     private UpdateIssueRequest _edit = new();
     private string _newComment = "";
     private bool _commenting;
@@ -372,6 +404,8 @@ else
     /// <summary>A listed viewer can always comment, even on the rare org-Viewer-role account that otherwise couldn't.</summary>
     private bool CanComment => RolePermissions.Allows(Tenant.Role, OrgPermission.CommentOnIssue) || IsIssueViewer;
 
+    private bool CanManageWiki => RolePermissions.Allows(Tenant.Role, OrgPermission.ManageWiki);
+
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
@@ -381,6 +415,9 @@ else
             var project = await Projects.GetByKeyAsync(_issue.ProjectKey);
             _sprints = await SprintSvc.GetForProjectAsync(project.Id);
         }
+        _linkedWikiPage = await WikiSvc.GetLinkedPageAsync(IssueId);
+        if (CanManageWiki)
+            _wikiPages = await WikiSvc.GetTreeAsync();
     }
 
     private async Task LoadAsync()
@@ -522,6 +559,24 @@ else
         {
             await Issues.RemoveViewerAsync(IssueId, userId);
             await LoadAsync();
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+    }
+
+    private async Task LinkWikiPageAsync(Guid? pageId)
+    {
+        if (!CanManageWiki) return;
+        try
+        {
+            if (pageId is { } id)
+            {
+                await WikiSvc.LinkToIssueAsync(id, IssueId);
+            }
+            else if (_linkedWikiPage is { } current)
+            {
+                await WikiSvc.LinkToIssueAsync(current.Id, null);
+            }
+            _linkedWikiPage = await WikiSvc.GetLinkedPageAsync(IssueId);
         }
         catch (Exception ex) { Toasts.Error(ex.Message); }
     }

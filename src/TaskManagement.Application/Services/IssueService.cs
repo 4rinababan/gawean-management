@@ -38,11 +38,12 @@ public sealed class IssueService(
 
         var issues = await db.Issues
             .Include(i => i.Attachments)
+            .Include(i => i.Viewers)
             .Where(i => i.ProjectId == projectId && i.SprintId == null && i.Status != IssueStatus.Done)
             .OrderBy(i => i.BoardRank)
             .ToListAsync(ct);
 
-        return await IssueMapper.ToListItemsAsync(issues, project.Key, users, ct);
+        return await IssueMapper.ToListItemsAsync(db, issues, project.Key, users, ct);
     }
 
     public async Task<IssueDetailDto> GetAsync(Guid issueId, CancellationToken ct = default)

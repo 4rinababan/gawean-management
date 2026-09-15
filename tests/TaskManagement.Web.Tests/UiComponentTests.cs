@@ -119,7 +119,8 @@ public class UiComponentTests : BunitContext
     public void KanbanCard_shows_reference_points_and_assignee_avatar()
     {
         var issue = new IssueListItemDto(Guid.NewGuid(), "WEB-7", "Fix header", IssueType.Bug,
-            IssueStatus.Todo, IssuePriority.High, 5, "u1", "Grace Hopper", "#111", null, "aaa", null, false, 0);
+            IssueStatus.Todo, IssuePriority.High, 5, "u1", "Grace Hopper", "#111", null, "aaa", null, false, 0,
+            "u0", "Ada Lovelace", "#222", [], null, null);
 
         var cut = Render<KanbanCard>(ps => ps.Add(p => p.Issue, issue));
 
@@ -132,7 +133,8 @@ public class UiComponentTests : BunitContext
         var id = Guid.NewGuid();
         Guid? opened = null;
         var issue = new IssueListItemDto(id, "WEB-1", "T", IssueType.Task, IssueStatus.Todo,
-            IssuePriority.Medium, null, null, null, null, null, "a", null, false, 0);
+            IssuePriority.Medium, null, null, null, null, null, "a", null, false, 0,
+            "u0", "Ada Lovelace", "#222", [], null, null);
 
         var cut = Render<KanbanCard>(ps => ps
             .Add(p => p.Issue, issue)
@@ -146,7 +148,8 @@ public class UiComponentTests : BunitContext
     public void KanbanCard_shows_attachment_count_when_the_issue_has_attachments()
     {
         var issue = new IssueListItemDto(Guid.NewGuid(), "WEB-9", "Upload spec", IssueType.Story,
-            IssueStatus.Todo, IssuePriority.Medium, null, null, null, null, null, "a", null, false, 3);
+            IssueStatus.Todo, IssuePriority.Medium, null, null, null, null, null, "a", null, false, 3,
+            "u0", "Ada Lovelace", "#222", [], null, null);
 
         var cut = Render<KanbanCard>(ps => ps.Add(p => p.Issue, issue));
 

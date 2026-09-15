@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using TaskManagement.Domain.Issues;
 using TaskManagement.Domain.Wiki;
 
 namespace TaskManagement.Infrastructure.Persistence.Configurations;
@@ -20,10 +21,14 @@ public sealed class WikiPageConfiguration : IEntityTypeConfiguration<WikiPage>
         builder.Property(w => w.CreatedByUserId).HasMaxLength(450).IsRequired();
         builder.Property(w => w.LastEditedByUserId).HasMaxLength(450);
         builder.HasIndex(w => new { w.OrganizationId, w.ParentPageId });
+        builder.HasIndex(w => w.IssueId);
 
         // Deleting a parent page cascades to its children (a subtree removed together); the FK's own
         // "no self-cascade-path" restriction is why this can't also cascade from Organization directly
         // through Issue/Comment-style chains — it's fine here since WikiPage has no other cascade parent.
         builder.HasOne<WikiPage>().WithMany().HasForeignKey(w => w.ParentPageId).OnDelete(DeleteBehavior.Cascade);
+
+        // Deleting the linked issue un-links the page (keeps the documentation) rather than deleting it.
+        builder.HasOne<Issue>().WithMany().HasForeignKey(w => w.IssueId).OnDelete(DeleteBehavior.SetNull);
     }
 }
