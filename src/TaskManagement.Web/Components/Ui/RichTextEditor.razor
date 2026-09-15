@@ -4,19 +4,30 @@
 
 @* Quill editor. The HTML it produces is sanitised server-side before it is stored — see
    RichTextSanitizer — so nothing here is trusted just because it came from our own toolbar. *@
-<div class="tm-richtext @(ReadOnly ? "tm-richtext--readonly" : "")">
-    <div @ref="_host"></div>
-</div>
-
 @if (!ReadOnly && ShowPageCount)
 {
     @* Updated directly by JS (see richtext.js) — this component never re-renders after its first
-       paint, so the count can't flow back through Blazor state without fighting Quill for the DOM. *@
-    <p class="mt-2 flex items-center gap-1.5 text-xs text-slate-400">
-        <Icon Name="document-text" Class="h-3.5 w-3.5" />
-        <span @ref="_pageCountEl">Calculating pages…</span>
-    </p>
+       paint, so none of this can flow back through Blazor state without fighting Quill for the DOM. *@
+    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p class="flex items-center gap-1.5 text-xs text-slate-400">
+            <Icon Name="document-text" Class="h-3.5 w-3.5" />
+            <span @ref="_pageCountEl">Calculating pages…</span>
+        </p>
+        <div class="flex items-center gap-1" @ref="_pageNavEl">
+            <button type="button" class="tm-page-nav" data-page-nav="first">First</button>
+            <button type="button" class="tm-page-nav" data-page-nav="prev"><Icon Name="arrow-left" Class="h-3.5 w-3.5" /></button>
+            <span class="flex items-center gap-1 px-1 text-xs text-slate-500 dark:text-slate-400">
+                Page <span data-page-nav="current">1</span> of <span data-page-nav="total">1</span>
+            </span>
+            <button type="button" class="tm-page-nav" data-page-nav="next"><Icon Name="arrow-left" Class="h-3.5 w-3.5 rotate-180" /></button>
+            <button type="button" class="tm-page-nav" data-page-nav="last">Last</button>
+        </div>
+    </div>
 }
+
+<div class="tm-richtext @(ReadOnly ? "tm-richtext--readonly" : "") @(!ReadOnly && ShowPageCount ? "tm-richtext--paginated" : "")">
+    <div @ref="_host"></div>
+</div>
 
 @if (!ReadOnly)
 {
@@ -59,6 +70,7 @@
 
     private ElementReference _host;
     private ElementReference _pageCountEl;
+    private ElementReference _pageNavEl;
     private InputFile? _fileInput;
     private IJSObjectReference? _module;
     private DotNetObjectReference<RichTextEditor>? _ref;
@@ -89,7 +101,8 @@
 
         _ref = DotNetObjectReference.Create(this);
         _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/richtext.js");
-        await _module.InvokeVoidAsync("create", _host, _ref, Value, ReadOnly, ShowPageCount, ShowPageCount ? _pageCountEl : default);
+        await _module.InvokeVoidAsync("create", _host, _ref, Value, ReadOnly, ShowPageCount,
+            ShowPageCount ? _pageCountEl : default, ShowPageCount ? _pageNavEl : default);
         _lastPushed = Value;
         _initialised = true;
     }

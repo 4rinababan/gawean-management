@@ -148,6 +148,48 @@
   border-radius: 0.5rem;
 }
 
+/* Paginated Document editing (RichTextEditor with ShowPageCount): the Quill surface is boxed to one
+   page's content area (A4 minus margins — keep these two numbers in sync with PAGE_CONTENT_WIDTH_PX /
+   PAGE_CONTENT_HEIGHT_PX in wwwroot/js/pagination.js) with its own internal scroll, so typing a long
+   Document scrolls inside that box instead of the whole browser window. The repeating background draws
+   a guide line at each real page-height interval; Prev/Next (richtext.js) jump the scroll by exactly
+   one page. This is an approximation of the real Paged.js output, not a guarantee of identical breaks. */
+.tm-richtext--paginated .ql-container.ql-snow {
+  margin: 0 auto;
+  width: 657.6px;
+  max-width: 100%;
+}
+
+.tm-richtext--paginated .ql-editor {
+  height: 986.2px;
+  max-height: 65vh;
+  overflow-y: auto;
+  font-size: 11pt;
+  line-height: 1.55;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 984.2px,
+    var(--color-slate-300) 984.2px,
+    var(--color-slate-300) 986.2px,
+    transparent 986.2px,
+    transparent 1010.2px
+  );
+  background-attachment: local;
+}
+
+.dark .tm-richtext--paginated .ql-editor {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 984.2px,
+    var(--color-slate-600) 984.2px,
+    var(--color-slate-600) 986.2px,
+    transparent 986.2px,
+    transparent 1010.2px
+  );
+}
+
 .dark .tm-richtext .ql-toolbar.ql-snow,
 .dark .tm-richtext .ql-container.ql-snow {
   border-color: var(--color-slate-700);
@@ -354,4 +396,15 @@ main > h1:first-child {
 }
 .tm-paginated .pagedjs_page {
   @apply rounded-sm bg-white shadow-md dark:bg-slate-900;
+}
+
+/* Page navigation bar above PaginatedDocumentView / the paginated editor. */
+.tm-page-nav {
+  @apply inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-2 py-1
+         text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed
+         disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700;
+}
+.tm-page-input {
+  @apply w-11 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-center text-xs
+         text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200;
 }

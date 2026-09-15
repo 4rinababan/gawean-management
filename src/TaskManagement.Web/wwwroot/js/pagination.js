@@ -54,6 +54,12 @@ pre { background: #f1f5f9; padding: 8pt; border-radius: 4px; overflow-wrap: brea
 code { font-family: ui-monospace, monospace; }
 `;
 
+// A4 at 96 CSS px/in (210mm/297mm), minus the @page margins above — the exact box Paged.js lays
+// content into. The paginated editor (richtext.js) reuses these so its "one page at a time" box and
+// its page-break guide lines line up with what Paged.js will actually produce on save.
+export const PAGE_CONTENT_WIDTH_PX = 657.6;
+export const PAGE_CONTENT_HEIGHT_PX = 986.2;
+
 // Paged.js's Polisher.add() treats a plain string argument as a URL to fetch — passing the CSS text
 // itself that way makes it try to XHR-fetch the stylesheet's own contents as a path (404s, and the
 // SPA's fallback HTML gets parsed as CSS). An inline sheet has to be wrapped as { key: cssText },
@@ -109,4 +115,14 @@ export async function renderPaginated(html, targetElement) {
     // navigating between wiki Documents in the same session leaks one per page visited.
     stylesBefore.forEach((el) => el.remove());
     return flow.pages.length;
+}
+
+/// Shows only the given 0-based page index inside a container previously filled by renderPaginated,
+/// hiding the rest — lets the view page through one sheet at a time (Prev/Next/Go to) instead of one
+/// long scroll through every page stacked vertically.
+export function showPage(targetElement, index) {
+    const pages = targetElement.querySelectorAll('.pagedjs_page');
+    pages.forEach((page, i) => {
+        page.style.display = i === index ? '' : 'none';
+    });
 }
