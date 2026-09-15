@@ -1,0 +1,157 @@
+@namespace TaskManagement.Web.Components.Pages.App
+@using TaskManagement.Domain.Wiki.Spreadsheet
+
+<div class="space-y-2">
+    <div class="overflow-auto rounded-lg border border-slate-200 dark:border-slate-700" style="max-height: 32rem">
+        <table class="border-collapse text-sm">
+            <thead>
+                <tr>
+                    <th class="sticky top-0 left-0 z-20 w-10 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800"></th>
+                    @for (var c = 0; c < ActiveSheet.ColumnCount; c++)
+                    {
+                        <th class="sticky top-0 z-10 min-w-[6rem] border border-slate-200 bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400" @key="c">
+                            @CellReference.IndexToColumn(c)
+                        </th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @for (var r = 0; r < ActiveSheet.RowCount; r++)
+                {
+                    var row = r;
+                    <tr @key="row">
+                        <th class="sticky left-0 z-10 border border-slate-200 bg-slate-100 px-2 py-1 text-right text-xs font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                            @(row + 1)
+                        </th>
+                        @for (var c = 0; c < ActiveSheet.ColumnCount; c++)
+                        {
+                            var cellRef = CellReference.ToReference(c, row);
+                            <td class="border border-slate-200 p-0 dark:border-slate-700" @key="cellRef">
+                                @if (!ReadOnly && _activeCell == cellRef)
+                                {
+                                    <input @ref="_activeInputRef" class="h-7 w-full min-w-[6rem] border-0 bg-white px-1.5 text-sm outline-none ring-1 ring-brand-500 dark:bg-slate-900 dark:text-slate-100"
+                                           value="@GetRawValue(cellRef)"
+                                           @onchange="e => SetCellValue(cellRef, e.Value?.ToString())"
+                                           @onblur="() => _activeCell = null" />
+                                }
+                                else
+                                {
+                                    var value = FormulaEngine.Evaluate(cellRef, ActiveSheet);
+                                    <div class="@($"h-7 min-w-[6rem] truncate px-1.5 py-1 leading-5 {(!ReadOnly ? "cursor-cell hover:bg-slate-50 dark:hover:bg-slate-800" : "")} {(value.IsError ? "text-rose-600 dark:text-rose-400" : "text-slate-700 dark:text-slate-200")}")"
+                                         @onclick="() => Activate(cellRef)">
+                                        @value.ToString()
+                                    </div>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (!ReadOnly)
+    {
+        <div class="flex items-center gap-2">
+            <Button Variant="Button.ButtonVariant.Secondary" OnClick="AddRow">+ Row</Button>
+            <Button Variant="Button.ButtonVariant.Secondary" OnClick="AddColumn">+ Column</Button>
+        </div>
+    }
+
+    <div class="flex flex-wrap items-center gap-1 border-t border-slate-200 pt-2 dark:border-slate-700">
+        @for (var i = 0; i < Workbook.Sheets.Count; i++)
+        {
+            var index = i;
+            <div class="group relative">
+                <button type="button" class="@SheetTabClass(index)" @onclick="() => _activeSheetIndex = index">
+                    @Workbook.Sheets[index].Name
+                    @if (!ReadOnly && Workbook.Sheets.Count > 1)
+                    {
+                        <span class="ml-1.5 text-slate-400 hover:text-rose-500" @onclick="() => RemoveSheet(index)" @onclick:stopPropagation="true">✕</span>
+                    }
+                </button>
+            </div>
+        }
+        @if (!ReadOnly)
+        {
+            <button type="button" class="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800" title="Add sheet" @onclick="AddSheet">
+                <Icon Name="plus" Class="h-4 w-4" />
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public SpreadsheetWorkbook Workbook { get; set; } = default!;
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private int _activeSheetIndex;
+    private string? _activeCell;
+    private ElementReference? _activeInputRef;
+    private bool _focusPending;
+
+    private SpreadsheetSheet ActiveSheet => Workbook.Sheets[Math.Clamp(_activeSheetIndex, 0, Workbook.Sheets.Count - 1)];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusPending && _activeInputRef is { } input)
+        {
+            _focusPending = false;
+            try { await input.FocusAsync(); } catch (JSDisconnectedException) { }
+        }
+    }
+
+    private string GetRawValue(string cellRef) => ActiveSheet.Cells.TryGetValue(cellRef, out var v) ? v : "";
+
+    private void Activate(string cellRef)
+    {
+        if (ReadOnly) return;
+        _activeCell = cellRef;
+        _focusPending = true;
+    }
+
+    private async Task SetCellValue(string cellRef, string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            ActiveSheet.Cells.Remove(cellRef);
+        else
+            ActiveSheet.Cells[cellRef] = value;
+        _activeCell = null;
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task AddRow()
+    {
+        ActiveSheet.RowCount++;
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task AddColumn()
+    {
+        ActiveSheet.ColumnCount++;
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task AddSheet()
+    {
+        var n = Workbook.Sheets.Count + 1;
+        Workbook.Sheets.Add(new SpreadsheetSheet { Name = $"Sheet{n}" });
+        _activeSheetIndex = Workbook.Sheets.Count - 1;
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task RemoveSheet(int index)
+    {
+        if (Workbook.Sheets.Count <= 1) return;
+        Workbook.Sheets.RemoveAt(index);
+        _activeSheetIndex = Math.Clamp(_activeSheetIndex, 0, Workbook.Sheets.Count - 1);
+        await OnChanged.InvokeAsync();
+    }
+
+    private string SheetTabClass(int index) =>
+        "rounded-t-lg border border-b-0 px-3 py-1.5 text-xs font-medium transition " +
+        (index == _activeSheetIndex
+            ? "border-slate-200 bg-white text-brand-700 dark:border-slate-700 dark:bg-slate-900 dark:text-brand-300"
+            : "border-transparent text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800");
+}

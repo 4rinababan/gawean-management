@@ -61,3 +61,10 @@ public enum NotificationType
     SprintStarted = 5,
     AutomationRuleFired = 6,
 }
+
+/// <summary>What kind of content a wiki page holds — the editor and viewer branch on this.</summary>
+public enum WikiPageType
+{
+    Document = 0,
+    Spreadsheet = 1,
+}

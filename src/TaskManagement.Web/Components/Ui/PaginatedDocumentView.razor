@@ -1,0 +1,49 @@
+@namespace TaskManagement.Web.Components.Ui
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* Read-only render of a wiki Document as real, paper-accurate pages (A4, page numbers, mid-paragraph
+   reflow) via Paged.js — see wwwroot/js/pagination.js. Deliberately separate from RichTextView, which
+   stays a plain flowing view for short content like issue descriptions where "N pages" is just noise. *@
+@if (string.IsNullOrWhiteSpace(Html))
+{
+    <p class="text-sm text-slate-400">This page is empty.</p>
+}
+else
+{
+    <div class="mb-3 flex items-center gap-1.5 text-xs text-slate-400">
+        <Icon Name="document-text" Class="h-3.5 w-3.5" />
+        <span>@(_pageCount is null ? "Paginating…" : _pageCount == 1 ? "1 page" : $"{_pageCount} pages")</span>
+    </div>
+    <div @ref="_host" class="tm-paginated" @key="Html"></div>
+}
+
+@code {
+    [Parameter] public string? Html { get; set; }
+
+    private ElementReference _host;
+    private IJSObjectReference? _module;
+    private string? _rendered;
+    private int? _pageCount;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (string.IsNullOrWhiteSpace(Html) || Html == _rendered)
+            return;
+
+        _rendered = Html;
+        _pageCount = null;
+        _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/pagination.js");
+        _pageCount = await _module.InvokeAsync<int>("renderPaginated", Html, _host);
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_module is not null) await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException) { }
+    }
+}

@@ -4,6 +4,9 @@
 @layout OrgLayout
 @attribute [Authorize]
 @inherits OrgPageBase
+@using System.Text.Json
+@using TaskManagement.Domain
+@using TaskManagement.Domain.Wiki.Spreadsheet
 @inject WikiService WikiSvc
 @inject ToastService Toasts
 @inject NavigationManager NavManager
@@ -65,7 +68,14 @@
                 </Field>
                 <div class="mt-4">
                     <span class="tm-label mb-0">Content</span>
-                    <RichTextEditor Value="@_editContent" ValueChanged="v => _editContent = v" />
+                    @if (_page.Type == WikiPageType.Spreadsheet && _editWorkbook is not null)
+                    {
+                        <SpreadsheetEditor Workbook="_editWorkbook" />
+                    }
+                    else
+                    {
+                        <RichTextEditor Value="@_editContent" ValueChanged="v => _editContent = v" ShowPageCount="true" />
+                    }
                 </div>
                 <div class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                     <Button Variant="Button.ButtonVariant.Secondary" OnClick="CancelEdit" FullWidth="true">Cancel</Button>
@@ -102,13 +112,20 @@
                 }
             </div>
             <Card>
-                @if (string.IsNullOrWhiteSpace(_page.Content))
+                @if (_page.Type == WikiPageType.Spreadsheet)
+                {
+                    @if (_viewWorkbook is not null)
+                    {
+                        <SpreadsheetEditor Workbook="_viewWorkbook" ReadOnly="true" />
+                    }
+                }
+                else if (string.IsNullOrWhiteSpace(_page.Content))
                 {
                     <p class="text-sm text-slate-400">This page is empty.</p>
                 }
                 else
                 {
-                    <RichTextView Html="@_page.Content" />
+                    <PaginatedDocumentView Html="@_page.Content" />
                 }
             </Card>
         }
@@ -118,6 +135,18 @@
 <Modal Open="_showCreate" OpenChanged="v => _showCreate = v" Title="New page">
     <Field Label="Title" Required>
         <input class="tm-input" @bind="_newTitle" @bind:event="oninput" placeholder="e.g. Onboarding guide" />
+    </Field>
+    <Field Label="Type" Class="mt-4">
+        <div class="grid grid-cols-2 gap-2">
+            <button type="button" class="@NewTypeCardClass(WikiPageType.Document)" @onclick="() => _newType = WikiPageType.Document">
+                <Icon Name="document-text" Class="h-5 w-5" />
+                <span class="text-sm font-medium">Document</span>
+            </button>
+            <button type="button" class="@NewTypeCardClass(WikiPageType.Spreadsheet)" @onclick="() => _newType = WikiPageType.Spreadsheet">
+                <Icon Name="table-cells" Class="h-5 w-5" />
+                <span class="text-sm font-medium">Spreadsheet</span>
+            </button>
+        </div>
     </Field>
     <div class="mt-4 flex justify-end gap-2">
         <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => _showCreate = false">Cancel</Button>
@@ -138,11 +167,14 @@
     private bool _editing;
     private string _editTitle = "";
     private string? _editContent;
+    private SpreadsheetWorkbook? _editWorkbook;
+    private SpreadsheetWorkbook? _viewWorkbook;
     private bool _saving;
 
     private bool _showCreate;
     private string _newTitle = "";
     private Guid? _newParentId;
+    private WikiPageType _newType = WikiPageType.Document;
 
     private bool _confirmDelete;
     private int _childCountToDelete;
@@ -169,14 +201,26 @@
     {
         _editing = false;
         _page = PageId is { } id ? await WikiSvc.GetAsync(id) : null;
+        _viewWorkbook = _page is { Type: WikiPageType.Spreadsheet } ? DeserializeWorkbook(_page.Content) : null;
     }
+
+    private static SpreadsheetWorkbook DeserializeWorkbook(string? content) =>
+        (string.IsNullOrWhiteSpace(content) ? null : JsonSerializer.Deserialize<SpreadsheetWorkbook>(content))
+        ?? SpreadsheetWorkbook.NewDefault();
 
     private void BeginCreate(Guid? parentId)
     {
         _newParentId = parentId;
         _newTitle = "";
+        _newType = WikiPageType.Document;
         _showCreate = true;
     }
+
+    private string NewTypeCardClass(WikiPageType type) =>
+        "flex flex-col items-center gap-1.5 rounded-lg border p-3 transition " +
+        (type == _newType
+            ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300"
+            : "border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800");
 
     private async Task CreateAsync()
     {
@@ -184,7 +228,7 @@
         _saving = true;
         try
         {
-            var created = await WikiSvc.CreateAsync(new CreateWikiPageRequest { Title = _newTitle, ParentPageId = _newParentId });
+            var created = await WikiSvc.CreateAsync(new CreateWikiPageRequest { Title = _newTitle, ParentPageId = _newParentId, Type = _newType });
             _showCreate = false;
             _tree = await WikiSvc.GetTreeAsync();
             NavManager.NavigateTo($"/{Slug}/wiki/{created.Id}");
@@ -198,6 +242,7 @@
         if (_page is null) return;
         _editTitle = _page.Title;
         _editContent = _page.Content;
+        _editWorkbook = _page.Type == WikiPageType.Spreadsheet ? DeserializeWorkbook(_page.Content) : null;
         _editing = true;
     }
 
@@ -209,7 +254,8 @@
         _saving = true;
         try
         {
-            await WikiSvc.UpdateAsync(_page.Id, new UpdateWikiPageRequest { Title = _editTitle, Content = _editContent });
+            var content = _page.Type == WikiPageType.Spreadsheet ? JsonSerializer.Serialize(_editWorkbook) : _editContent;
+            await WikiSvc.UpdateAsync(_page.Id, new UpdateWikiPageRequest { Title = _editTitle, Content = content });
             _tree = await WikiSvc.GetTreeAsync();
             await LoadPageAsync();
             Toasts.Success("Page saved.");

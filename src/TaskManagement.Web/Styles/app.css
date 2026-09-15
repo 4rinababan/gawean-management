@@ -340,3 +340,18 @@ main > h1:first-child {
   @apply border-rose-200 bg-rose-50 p-3 font-mono text-xs text-rose-700
          dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300;
 }
+
+/* ---------------------------------------------------------------------------
+   Paginated wiki Document (PaginatedDocumentView). Paged.js lays out the real page
+   boxes (.pagedjs_page etc, see wwwroot/js/pagination.js) — this just gives them a
+   paper look: a grey backdrop so white A4 sheets read as distinct pages, not one box.
+   --------------------------------------------------------------------------- */
+.tm-paginated {
+  @apply -m-5 overflow-x-auto rounded-b-xl bg-slate-100 p-6 dark:bg-slate-950;
+}
+.tm-paginated .pagedjs_pages {
+  @apply mx-auto flex w-fit flex-col items-center gap-6;
+}
+.tm-paginated .pagedjs_page {
+  @apply rounded-sm bg-white shadow-md dark:bg-slate-900;
+}

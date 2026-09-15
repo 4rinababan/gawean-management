@@ -4,7 +4,7 @@
 // separate JS endpoint that would need its own auth and antiforgery handling.
 const editors = new Map();
 
-export function create(element, dotNetRef, initialHtml, readOnly) {
+export function create(element, dotNetRef, initialHtml, readOnly, showPageCount, pageCountEl) {
     if (!element || editors.has(element)) return;
 
     const quill = new Quill(element, {
@@ -36,13 +36,36 @@ export function create(element, dotNetRef, initialHtml, readOnly) {
     // Debounced: on Blazor Server every callback is a network round trip, and firing one per
     // keystroke makes typing feel like it is dropping characters.
     let pending;
+    let pageCountToken = 0;
     quill.on('text-change', (_delta, _old, source) => {
         if (source !== 'user') return;
         clearTimeout(pending);
-        pending = setTimeout(() => dotNetRef.invokeMethodAsync('OnContentChangedAsync', getHtml(quill)), 300);
+        pending = setTimeout(() => {
+            const html = getHtml(quill);
+            dotNetRef.invokeMethodAsync('OnContentChangedAsync', html);
+            if (showPageCount) schedulePageCount(html);
+        }, 300);
     });
 
+    // Real pagination is real work (it lays the content out the same way a print/PDF engine
+    // would), so only the most recent request's result is allowed to win — otherwise a burst of
+    // keystrokes could resolve out of order and flash a stale count. Written straight to the DOM
+    // rather than round-tripped through Blazor: this component intentionally never re-renders
+    // after its first paint (see the ShouldRender override in the .razor file), since letting
+    // Blazor diff over the div Quill owns steals focus and eats input.
+    function schedulePageCount(html) {
+        if (!pageCountEl) return;
+        const token = ++pageCountToken;
+        pageCountEl.textContent = 'Calculating pages…';
+        import('./pagination.js').then((mod) => mod.countPages(html)).then((count) => {
+            if (token !== pageCountToken) return;
+            pageCountEl.textContent = count <= 1 ? '1 page' : `${count} pages`;
+        });
+    }
+
     editors.set(element, quill);
+
+    if (showPageCount) schedulePageCount(getHtml(quill));
 }
 
 function getHtml(quill) {

@@ -8,6 +8,16 @@
     <div @ref="_host"></div>
 </div>
 
+@if (!ReadOnly && ShowPageCount)
+{
+    @* Updated directly by JS (see richtext.js) — this component never re-renders after its first
+       paint, so the count can't flow back through Blazor state without fighting Quill for the DOM. *@
+    <p class="mt-2 flex items-center gap-1.5 text-xs text-slate-400">
+        <Icon Name="document-text" Class="h-3.5 w-3.5" />
+        <span @ref="_pageCountEl">Calculating pages…</span>
+    </p>
+}
+
 @if (!ReadOnly)
 {
     @* Snippets: Quill's own code-block button gives an empty block, which is a poor start for a
@@ -39,10 +49,16 @@
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
     [Parameter] public bool ReadOnly { get; set; }
 
+    /// <summary>Shows a live "N pages" estimate below the editor, computed with the same Paged.js
+    /// engine used for the real print-accurate view — not a character-count guess. Meant for long-form
+    /// wiki Documents; left off elsewhere (issue descriptions, comments) where a page count is noise.</summary>
+    [Parameter] public bool ShowPageCount { get; set; }
+
     /// <summary>Uploads a pasted/inserted image and returns the URL to embed, or null to cancel.</summary>
     [Parameter] public Func<IBrowserFile, Task<string?>>? OnUploadImage { get; set; }
 
     private ElementReference _host;
+    private ElementReference _pageCountEl;
     private InputFile? _fileInput;
     private IJSObjectReference? _module;
     private DotNetObjectReference<RichTextEditor>? _ref;
@@ -73,7 +89,7 @@
 
         _ref = DotNetObjectReference.Create(this);
         _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/richtext.js");
-        await _module.InvokeVoidAsync("create", _host, _ref, Value, ReadOnly);
+        await _module.InvokeVoidAsync("create", _host, _ref, Value, ReadOnly, ShowPageCount, ShowPageCount ? _pageCountEl : default);
         _lastPushed = Value;
         _initialised = true;
     }

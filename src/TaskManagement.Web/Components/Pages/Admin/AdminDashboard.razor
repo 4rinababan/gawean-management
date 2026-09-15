@@ -16,7 +16,7 @@ else if (_isAdmin)
 {
     <PageHeader Title="Admin dashboard" Subtitle="Site-wide view across every workspace." />
 
-    <Tabs Items="_tabs" Active="_active" ActiveChanged="k => _active = k" />
+    <Tabs Items="_tabs" Active="@_active" ActiveChanged="k => _active = k" />
 
     <div class="mt-6">
         @if (_active == "overview" && _overview is { } ov)
