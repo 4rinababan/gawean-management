@@ -1,4 +1,5 @@
 @namespace TaskManagement.Web.Components.Pages.App
+@using System.Text.Json.Serialization
 @using TaskManagement.Domain.Wiki.Spreadsheet
 @implements IAsyncDisposable
 @inject IJSRuntime JS
@@ -11,6 +12,25 @@
             <button type="button" class="tm-page-nav" disabled="@(_lastActiveCell is null)" @onclick="CopyAsync">Copy</button>
             <button type="button" class="tm-page-nav" disabled="@(_lastActiveCell is null)" @onclick="PasteAsync">Paste</button>
             <span class="mx-1 h-4 w-px bg-slate-200 dark:bg-slate-700"></span>
+            <button type="button" class="@FormatToggleClass(CurrentFormat().Bold)" disabled="@(_lastActiveCell is null)" @onclick="ToggleBold" title="Bold"><strong>B</strong></button>
+            <button type="button" class="@FormatToggleClass(CurrentFormat().Italic)" disabled="@(_lastActiveCell is null)" @onclick="ToggleItalic" title="Italic"><em>I</em></button>
+            <button type="button" class="@FormatToggleClass(CurrentFormat().Underline)" disabled="@(_lastActiveCell is null)" @onclick="ToggleUnderline" title="Underline"><span class="underline">U</span></button>
+            <label class="tm-page-nav cursor-pointer p-0.5" title="Text colour">
+                <input type="color" class="h-5 w-5 cursor-pointer border-0 bg-transparent p-0" disabled="@(_lastActiveCell is null)"
+                       value="@(CurrentFormat().TextColor ?? "#1e293b")" @onchange="e => SetTextColor(e.Value?.ToString())" />
+            </label>
+            <label class="tm-page-nav cursor-pointer p-0.5" title="Fill colour">
+                <span class="text-[10px]">Fill</span>
+                <input type="color" class="h-5 w-5 cursor-pointer border-0 bg-transparent p-0" disabled="@(_lastActiveCell is null)"
+                       value="@(CurrentFormat().BackgroundColor ?? "#ffffff")" @onchange="e => SetBackgroundColor(e.Value?.ToString())" />
+            </label>
+            <span class="mx-1 h-4 w-px bg-slate-200 dark:bg-slate-700"></span>
+            <button type="button" class="@FormatToggleClass(CurrentFormat().Align == "left")" disabled="@(_lastActiveCell is null)" @onclick='() => SetAlign("left")' title="Align left">L</button>
+            <button type="button" class="@FormatToggleClass(CurrentFormat().Align == "center")" disabled="@(_lastActiveCell is null)" @onclick='() => SetAlign("center")' title="Align center">C</button>
+            <button type="button" class="@FormatToggleClass(CurrentFormat().Align == "right")" disabled="@(_lastActiveCell is null)" @onclick='() => SetAlign("right")' title="Align right">R</button>
+            <span class="mx-1 h-4 w-px bg-slate-200 dark:bg-slate-700"></span>
+            <button type="button" class="tm-page-nav" disabled="@(_lastActiveCell is null)" @onclick="AutoSum" title="Sum the non-empty cells above">Σ AutoSum</button>
+            <span class="mx-1 h-4 w-px bg-slate-200 dark:bg-slate-700"></span>
             <button type="button" class="tm-page-nav" @onclick="() => InsertRow(before: true)" title="Insert row above the selected cell">+Row ↑</button>
             <button type="button" class="tm-page-nav" @onclick="() => InsertRow(before: false)" title="Insert row below the selected cell">+Row ↓</button>
             <button type="button" class="tm-page-nav" disabled="@(ActiveSheet.RowCount <= 1)" @onclick="DeleteRow" title="Delete the selected cell's row">−Row</button>
@@ -19,7 +39,7 @@
             <button type="button" class="tm-page-nav" @onclick="() => InsertColumn(before: false)" title="Insert column right of the selected cell">+Col →</button>
             <button type="button" class="tm-page-nav" disabled="@(ActiveSheet.ColumnCount <= 1)" @onclick="DeleteColumn" title="Delete the selected cell's column">−Col</button>
             <span class="mx-1 h-4 w-px bg-slate-200 dark:bg-slate-700"></span>
-            <button type="button" class="tm-page-nav" disabled="@(_lastActiveCell is null)" @onclick="ClearActiveCellAsync">Clear</button>
+            <button type="button" class="tm-page-nav" disabled="@(_lastActiveCell is null)" @onclick="ClearActiveCellAsync" title="Clear value and formatting">Clear</button>
         </div>
     }
 
@@ -58,7 +78,8 @@
                                 else
                                 {
                                     var value = FormulaEngine.Evaluate(cellRef, ActiveSheet);
-                                    <div class="@($"h-7 min-w-[6rem] truncate px-1.5 py-1 leading-5 {(!ReadOnly ? "cursor-cell hover:bg-slate-50 dark:hover:bg-slate-800" : "")} {(!ReadOnly && _activeCell is null && _lastActiveCell == cellRef ? "ring-1 ring-inset ring-brand-300" : "")} {(value.IsError ? "text-rose-600 dark:text-rose-400" : "text-slate-700 dark:text-slate-200")}")"
+                                    <div class="@($"h-7 min-w-[6rem] truncate px-1.5 py-1 leading-5 {CellFormatClass(cellRef)} {(!ReadOnly ? "cursor-cell hover:bg-slate-50 dark:hover:bg-slate-800" : "")} {(!ReadOnly && _activeCell is null && _lastActiveCell == cellRef ? "ring-1 ring-inset ring-brand-300" : "")} {(value.IsError ? "text-rose-600 dark:text-rose-400" : "text-slate-700 dark:text-slate-200")}")"
+                                         style="@CellInlineStyle(cellRef)"
                                          @onclick="() => Activate(cellRef)">
                                         @value.ToString()
                                     </div>
@@ -187,13 +208,94 @@
             ? "border-slate-200 bg-white text-brand-700 dark:border-slate-700 dark:bg-slate-900 dark:text-brand-300"
             : "border-transparent text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800");
 
-    // --- Clipboard: paste from Excel ------------------------------------------------------------
+    // --- Formatting: render + toolbar -------------------------------------------------------------
 
-    /// <summary>Called from spreadsheet.js when a multi-cell paste (tab/newline-delimited text — what
-    /// Excel puts on the clipboard) is intercepted on the active cell's input. Fans the pasted grid out
-    /// starting at that cell, growing the sheet if the pasted block runs past its current bounds.</summary>
+    private CellFormat CurrentFormat() =>
+        _lastActiveCell is { } cell && ActiveSheet.Formats.TryGetValue(cell, out var f) ? f : new CellFormat();
+
+    private string CellInlineStyle(string cellRef)
+    {
+        if (!ActiveSheet.Formats.TryGetValue(cellRef, out var f) || f.IsEmpty) return "";
+        var parts = new List<string>();
+        if (f.BackgroundColor is not null) parts.Add($"background-color:{f.BackgroundColor}");
+        if (f.TextColor is not null) parts.Add($"color:{f.TextColor}");
+        return string.Join(';', parts);
+    }
+
+    private string CellFormatClass(string cellRef)
+    {
+        if (!ActiveSheet.Formats.TryGetValue(cellRef, out var f) || f.IsEmpty) return "";
+        return string.Join(' ', new[]
+        {
+            f.Bold ? "font-bold" : "",
+            f.Italic ? "italic" : "",
+            f.Underline ? "underline" : "",
+            f.Align switch { "center" => "text-center", "right" => "text-right", _ => "" },
+        }.Where(c => c.Length > 0));
+    }
+
+    private static string FormatToggleClass(bool active) =>
+        "tm-page-nav w-7" + (active ? " !border-brand-400 !bg-brand-50 !text-brand-700 dark:!bg-brand-500/10 dark:!text-brand-300" : "");
+
+    private async Task MutateFormat(Action<CellFormat> mutate)
+    {
+        if (_lastActiveCell is not { } cellRef) return;
+        var format = ActiveSheet.Formats.TryGetValue(cellRef, out var existing) ? existing : new CellFormat();
+        mutate(format);
+        if (format.IsEmpty) ActiveSheet.Formats.Remove(cellRef);
+        else ActiveSheet.Formats[cellRef] = format;
+        await OnChanged.InvokeAsync();
+    }
+
+    private Task ToggleBold() => MutateFormat(f => f.Bold = !f.Bold);
+    private Task ToggleItalic() => MutateFormat(f => f.Italic = !f.Italic);
+    private Task ToggleUnderline() => MutateFormat(f => f.Underline = !f.Underline);
+    private Task SetAlign(string align) => MutateFormat(f => f.Align = f.Align == align ? null : align);
+    private Task SetTextColor(string? color) => MutateFormat(f => f.TextColor = color);
+    private Task SetBackgroundColor(string? color) => MutateFormat(f => f.BackgroundColor = color);
+
+    /// <summary>Sums the contiguous non-empty cells directly above the selected cell — the common
+    /// "select a cell under a column of numbers, click AutoSum" flow. Does nothing if the cell above
+    /// is empty, since there's no sensible range to guess at.</summary>
+    private async Task AutoSum()
+    {
+        if (_lastActiveCell is not { } cell || !CellReference.TryParse(cell, out var col, out var row) || row == 0)
+            return;
+
+        var endRow = row - 1;
+        if (!ActiveSheet.Cells.ContainsKey(CellReference.ToReference(col, endRow))) return;
+
+        var startRow = endRow;
+        while (startRow > 0 && ActiveSheet.Cells.ContainsKey(CellReference.ToReference(col, startRow - 1)))
+            startRow--;
+
+        ActiveSheet.Cells[cell] = startRow == endRow
+            ? $"=SUM({CellReference.ToReference(col, startRow)})"
+            : $"=SUM({CellReference.ToReference(col, startRow)}:{CellReference.ToReference(col, endRow)})";
+        await OnChanged.InvokeAsync();
+    }
+
+    // --- Clipboard: paste from Excel, preserving colour/bold/merged-header formatting -------------
+
+    /// <summary>A cell as parsed by spreadsheet.js — either from Excel's rich text/html clipboard
+    /// payload (colour, bold, alignment, merged headers flattened into a formatted band) or, when no
+    /// table markup is on the clipboard, a plain value with every format flag left at its default.</summary>
+    public sealed class PastedCellData
+    {
+        [JsonPropertyName("value")] public string Value { get; set; } = "";
+        [JsonPropertyName("bold")] public bool Bold { get; set; }
+        [JsonPropertyName("italic")] public bool Italic { get; set; }
+        [JsonPropertyName("underline")] public bool Underline { get; set; }
+        [JsonPropertyName("backgroundColor")] public string? BackgroundColor { get; set; }
+        [JsonPropertyName("textColor")] public string? TextColor { get; set; }
+        [JsonPropertyName("align")] public string? Align { get; set; }
+    }
+
+    /// <summary>Called from spreadsheet.js when a multi-cell paste (Excel's rich HTML clipboard, or a
+    /// plain tab/newline-delimited fallback) is intercepted on the active cell's input. Fans the pasted
+    /// grid out starting at that cell, growing the sheet if the pasted block runs past its current bounds.</summary>
     [JSInvokable]
-    public async Task OnGridPasted(string[][] grid)
+    public async Task OnGridPasted(PastedCellData[][] grid)
     {
         var anchor = _lastActiveCell ?? _activeCell;
         if (anchor is null || grid.Length == 0 || !CellReference.TryParse(anchor, out var startCol, out var startRow))
@@ -209,9 +311,22 @@
             for (var c = 0; c < grid[r].Length; c++)
             {
                 var cellRef = CellReference.ToReference(startCol + c, startRow + r);
-                var value = grid[r][c];
-                if (string.IsNullOrEmpty(value)) ActiveSheet.Cells.Remove(cellRef);
-                else ActiveSheet.Cells[cellRef] = value;
+                var cell = grid[r][c];
+
+                if (string.IsNullOrEmpty(cell.Value)) ActiveSheet.Cells.Remove(cellRef);
+                else ActiveSheet.Cells[cellRef] = cell.Value;
+
+                var format = new CellFormat
+                {
+                    Bold = cell.Bold,
+                    Italic = cell.Italic,
+                    Underline = cell.Underline,
+                    BackgroundColor = cell.BackgroundColor,
+                    TextColor = cell.TextColor,
+                    Align = cell.Align,
+                };
+                if (format.IsEmpty) ActiveSheet.Formats.Remove(cellRef);
+                else ActiveSheet.Formats[cellRef] = format;
             }
         }
 
@@ -226,11 +341,14 @@
     {
         if (_lastActiveCell is null) return;
         _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/spreadsheet.js");
-        var grid = await _module.InvokeAsync<string[][]?>("readClipboardGrid");
+        var grid = await _module.InvokeAsync<PastedCellData[][]?>("readClipboardGrid");
         if (grid is { Length: > 0 })
             await OnGridPasted(grid);
     }
 
+    /// <summary>Copies the raw value only — pasting this back into Excel round-trips the text, not the
+    /// cell's colour/bold formatting (writing a matching text/html clipboard payload back out is a
+    /// separate, not-yet-built piece of this feature).</summary>
     private async Task CopyAsync()
     {
         if (_lastActiveCell is not { } cellRef) return;
@@ -243,6 +361,7 @@
         if (_lastActiveCell is not { } cellRef) return;
         await CopyAsync();
         ActiveSheet.Cells.Remove(cellRef);
+        ActiveSheet.Formats.Remove(cellRef);
         await OnChanged.InvokeAsync();
     }
 
@@ -250,6 +369,7 @@
     {
         if (_lastActiveCell is not { } cellRef) return;
         ActiveSheet.Cells.Remove(cellRef);
+        ActiveSheet.Formats.Remove(cellRef);
         await OnChanged.InvokeAsync();
     }
 
@@ -260,6 +380,7 @@
         var atRow = _lastActiveCell is { } cell && CellReference.TryParse(cell, out _, out var row) ? row : 0;
         var insertAt = before ? atRow : atRow + 1;
         ActiveSheet.Cells = ShiftCells(ActiveSheet.Cells, insertRowAt: insertAt);
+        ActiveSheet.Formats = ShiftCells(ActiveSheet.Formats, insertRowAt: insertAt);
         ActiveSheet.RowCount++;
         await OnChanged.InvokeAsync();
     }
@@ -269,6 +390,7 @@
         if (ActiveSheet.RowCount <= 1) return;
         var atRow = _lastActiveCell is { } cell && CellReference.TryParse(cell, out _, out var row) ? row : 0;
         ActiveSheet.Cells = ShiftCells(ActiveSheet.Cells, removeRow: atRow);
+        ActiveSheet.Formats = ShiftCells(ActiveSheet.Formats, removeRow: atRow);
         ActiveSheet.RowCount--;
         await OnChanged.InvokeAsync();
     }
@@ -278,6 +400,7 @@
         var atCol = _lastActiveCell is { } cell && CellReference.TryParse(cell, out var col, out _) ? col : 0;
         var insertAt = before ? atCol : atCol + 1;
         ActiveSheet.Cells = ShiftCells(ActiveSheet.Cells, insertColAt: insertAt);
+        ActiveSheet.Formats = ShiftCells(ActiveSheet.Formats, insertColAt: insertAt);
         ActiveSheet.ColumnCount++;
         await OnChanged.InvokeAsync();
     }
@@ -287,18 +410,20 @@
         if (ActiveSheet.ColumnCount <= 1) return;
         var atCol = _lastActiveCell is { } cell && CellReference.TryParse(cell, out var col, out _) ? col : 0;
         ActiveSheet.Cells = ShiftCells(ActiveSheet.Cells, removeCol: atCol);
+        ActiveSheet.Formats = ShiftCells(ActiveSheet.Formats, removeCol: atCol);
         ActiveSheet.ColumnCount--;
         await OnChanged.InvokeAsync();
     }
 
-    /// <summary>Rebuilds a cell dictionary with every reference re-keyed for one row/column insert or
-    /// removal. Only one of the four operations is ever passed at a time.</summary>
-    private static Dictionary<string, string> ShiftCells(
-        Dictionary<string, string> cells,
+    /// <summary>Rebuilds a cell dictionary (values, or formats — both keyed the same way) with every
+    /// reference re-keyed for one row/column insert or removal. Only one of the four operations is
+    /// ever passed at a time.</summary>
+    private static Dictionary<string, T> ShiftCells<T>(
+        Dictionary<string, T> cells,
         int? removeRow = null, int? insertRowAt = null,
         int? removeCol = null, int? insertColAt = null)
     {
-        var result = new Dictionary<string, string>();
+        var result = new Dictionary<string, T>();
         foreach (var (key, value) in cells)
         {
             if (!CellReference.TryParse(key, out var col, out var row)) continue;
