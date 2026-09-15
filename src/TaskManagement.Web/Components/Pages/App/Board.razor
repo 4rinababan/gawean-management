@@ -62,6 +62,15 @@ else
     <CreateIssueModal Open="_showCreate" OpenChanged="v => _showCreate = v"
                       ProjectId="_project.Id" SprintId="_board?.ActiveSprintId"
                       OnCreated="_ => ReloadBoardAsync()" />
+
+    @* Opening an issue is a modal, not a navigation: closing it (✕, Escape, or backdrop click) just
+       returns to the board exactly as it was — no browser back button needed. *@
+    <Modal Open="_openIssueId is not null" OpenChanged="async v => { if (!v) await CloseIssue(); }" Width="xl">
+        @if (_openIssueId is { } id)
+        {
+            <IssueDetailPanel IssueId="id" Slug="@Slug" ShowBreadcrumb="false" OnDeleted="OnIssueDeleted" @key="id" />
+        }
+    </Modal>
 }
 
 @code {
@@ -70,6 +79,7 @@ else
     private ProjectDto? _project;
     private BoardDto? _board;
     private bool _showCreate;
+    private Guid? _openIssueId;
     private ElementReference _boardEl;
     private IJSObjectReference? _module;
     private DotNetObjectReference<Board>? _ref;
@@ -121,7 +131,17 @@ else
         }
     }
 
-    private void OpenIssue(Guid id) => Nav.NavigateTo($"/{Slug}/issues/{id}");
+    private void OpenIssue(Guid id) => _openIssueId = id;
+
+    /// <summary>Reload on close (not just on change) — simpler than tracking exactly what the panel
+    /// touched, and cheap enough for a board-sized issue list.</summary>
+    private async Task CloseIssue()
+    {
+        _openIssueId = null;
+        await ReloadBoardAsync();
+    }
+
+    private async Task OnIssueDeleted() => await CloseIssue();
 
     public async ValueTask DisposeAsync()
     {

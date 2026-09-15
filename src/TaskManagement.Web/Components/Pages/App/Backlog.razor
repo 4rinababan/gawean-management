@@ -61,6 +61,13 @@ else
 
     <CreateIssueModal Open="_showCreate" OpenChanged="v => _showCreate = v"
                       ProjectId="_project.Id" OnCreated="_ => ReloadAsync()" />
+
+    <Modal Open="_openIssueId is not null" OpenChanged="async v => { if (!v) await CloseIssue(); }" Width="xl">
+        @if (_openIssueId is { } id)
+        {
+            <IssueDetailPanel IssueId="id" Slug="@Slug" ShowBreadcrumb="false" OnDeleted="CloseIssue" @key="id" />
+        }
+    </Modal>
 }
 
 @code {
@@ -69,6 +76,7 @@ else
     private ProjectDto? _project;
     private IReadOnlyList<IssueListItemDto>? _issues;
     private bool _showCreate;
+    private Guid? _openIssueId;
 
     private bool CanCreate => TenantReady && RolePermissions.Allows(Tenant.Role, OrgPermission.CreateIssue);
 
@@ -85,5 +93,11 @@ else
         StateHasChanged();
     }
 
-    private void Open(Guid id) => Nav.NavigateTo($"/{Slug}/issues/{id}");
+    private void Open(Guid id) => _openIssueId = id;
+
+    private async Task CloseIssue()
+    {
+        _openIssueId = null;
+        await ReloadAsync();
+    }
 }
