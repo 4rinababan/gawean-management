@@ -38,6 +38,7 @@ builder.Services.AddSingleton<INotificationRealtime, SignalRNotificationRealtime
 builder.Services.AddScoped<TaskManagement.Web.Components.Ui.ToastService>();
 builder.Services.AddScoped<TaskManagement.Web.Components.Ui.TourState>();
 builder.Services.AddScoped<AdminService>();
+builder.Services.AddScoped<BroadcastService>();
 builder.Services.AddScoped<ProfileService>();
 
 // --- Authentication --------------------------------------------------------------
@@ -179,6 +180,7 @@ app.MapRazorComponents<App>()
 app.MapAdditionalIdentityEndpoints();
 app.MapAttachmentEndpoints();
 app.MapAvatarEndpoints();
+app.MapBroadcastEndpoints();
 
 app.Run();
 

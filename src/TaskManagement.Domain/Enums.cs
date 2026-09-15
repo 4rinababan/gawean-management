@@ -68,3 +68,16 @@ public enum WikiPageType
     Document = 0,
     Spreadsheet = 1,
 }
+
+/// <summary>Who a <c>Broadcast</c> announcement is shown to.</summary>
+public enum BroadcastTargetType
+{
+    /// <summary>Every user across every organization.</summary>
+    All = 0,
+
+    /// <summary>Members of one specific organization only.</summary>
+    Organization = 1,
+
+    /// <summary>An explicit, hand-picked list of users (see <c>BroadcastTargetUser</c>).</summary>
+    Users = 2,
+}

@@ -1,0 +1,174 @@
+@namespace TaskManagement.Web.Components.Pages.Admin
+@using System.Security.Claims
+@using TaskManagement.Domain
+@inject BroadcastService Broadcasts
+@inject AuthenticationStateProvider AuthState
+@inject ToastService Toasts
+
+<Modal Open="Open" OpenChanged="OnOpenChangedAsync" Title="New broadcast" Width="lg">
+    <Field Label="Message" Required>
+        <textarea class="tm-input" rows="4" @bind="_message" @bind:event="oninput" placeholder="What's new in GaweAn?"></textarea>
+    </Field>
+
+    <Field Label="Image (optional)" Class="mt-4">
+        <InputFile OnChange="OnImageSelectedAsync" accept="image/*" class="tm-input" />
+        @if (_imagePreviewUrl is not null)
+        {
+            <img src="@_imagePreviewUrl" class="mt-2 max-h-40 rounded-lg border border-slate-200 object-contain dark:border-slate-700" />
+        }
+    </Field>
+
+    <Field Label="Send to" Class="mt-4">
+        <div class="flex flex-wrap gap-2">
+            <button type="button" class="@TargetButtonClass(BroadcastTargetType.All)" @onclick="() => _targetType = BroadcastTargetType.All">All users</button>
+            <button type="button" class="@TargetButtonClass(BroadcastTargetType.Organization)" @onclick="() => _targetType = BroadcastTargetType.Organization">One organization</button>
+            <button type="button" class="@TargetButtonClass(BroadcastTargetType.Users)" @onclick="() => _targetType = BroadcastTargetType.Users">Specific users</button>
+        </div>
+    </Field>
+
+    @if (_targetType == BroadcastTargetType.Organization)
+    {
+        <Field Label="Organization" Class="mt-3">
+            <select class="tm-input" @bind="_targetOrganizationId">
+                <option value="">Select a workspace…</option>
+                @foreach (var w in Workspaces)
+                {
+                    <option value="@w.Id">@w.Name</option>
+                }
+            </select>
+        </Field>
+    }
+    else if (_targetType == BroadcastTargetType.Users)
+    {
+        <Field Label="Users" Class="mt-3">
+            <input class="tm-input" placeholder="Search by email or name…" value="@_userQuery" @oninput="OnUserQueryChangedAsync" />
+            @if (_userResults.Count > 0)
+            {
+                <div class="mt-1 max-h-40 overflow-auto rounded-lg border border-slate-200 dark:border-slate-700">
+                    @foreach (var u in _userResults)
+                    {
+                        <button type="button" class="block w-full px-3 py-1.5 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800" @onclick="() => AddTargetUser(u)">
+                            @u.DisplayName <span class="text-slate-400">(@u.Email)</span>
+                        </button>
+                    }
+                </div>
+            }
+            @if (_targetUsers.Count > 0)
+            {
+                <div class="mt-2 flex flex-wrap gap-1.5">
+                    @foreach (var u in _targetUsers)
+                    {
+                        <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                            @u.Email
+                            <span class="cursor-pointer text-slate-400 hover:text-rose-500" @onclick="() => _targetUsers.Remove(u)">✕</span>
+                        </span>
+                    }
+                </div>
+            }
+        </Field>
+    }
+
+    <div class="mt-5 flex justify-end gap-2">
+        <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => OnOpenChangedAsync(false)">Cancel</Button>
+        <Button Loading="_sending" Disabled="@(!CanSend)" OnClick="SendAsync">Send broadcast</Button>
+    </div>
+</Modal>
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+    [Parameter] public IReadOnlyList<AdminWorkspaceDto> Workspaces { get; set; } = [];
+    [Parameter] public EventCallback OnSent { get; set; }
+
+    private string _message = "";
+    private byte[]? _imageBytes;
+    private string? _imageContentType;
+    private string? _imageFileName;
+    private string? _imagePreviewUrl;
+    private BroadcastTargetType _targetType = BroadcastTargetType.All;
+    private Guid? _targetOrganizationId;
+    private string _userQuery = "";
+    private List<BroadcastUserSummaryDto> _userResults = [];
+    private List<BroadcastUserSummaryDto> _targetUsers = [];
+    private bool _sending;
+
+    private bool CanSend => !string.IsNullOrWhiteSpace(_message)
+        && (_targetType != BroadcastTargetType.Organization || _targetOrganizationId is not null)
+        && (_targetType != BroadcastTargetType.Users || _targetUsers.Count > 0);
+
+    private string TargetButtonClass(BroadcastTargetType t) =>
+        "tm-page-nav !px-3 !py-1.5" + (t == _targetType
+            ? " !border-brand-400 !bg-brand-50 !text-brand-700 dark:!bg-brand-500/10 dark:!text-brand-300"
+            : "");
+
+    private async Task OnImageSelectedAsync(InputFileChangeEventArgs e)
+    {
+        const long maxBytes = 5 * 1024 * 1024;
+        await using var stream = e.File.OpenReadStream(maxBytes);
+        using var buffer = new MemoryStream();
+        await stream.CopyToAsync(buffer);
+
+        _imageBytes = buffer.ToArray();
+        _imageContentType = e.File.ContentType;
+        _imageFileName = e.File.Name;
+        _imagePreviewUrl = $"data:{_imageContentType};base64,{Convert.ToBase64String(_imageBytes)}";
+    }
+
+    private async Task OnUserQueryChangedAsync(ChangeEventArgs e)
+    {
+        _userQuery = e.Value?.ToString() ?? "";
+        var results = await Broadcasts.SearchUsersAsync(_userQuery);
+        _userResults = results.Where(u => _targetUsers.All(t => t.Id != u.Id)).ToList();
+    }
+
+    private void AddTargetUser(BroadcastUserSummaryDto u)
+    {
+        _targetUsers.Add(u);
+        _userResults.Remove(u);
+    }
+
+    private async Task SendAsync()
+    {
+        if (!CanSend) return;
+        _sending = true;
+        try
+        {
+            var userId = (await AuthState.GetAuthenticationStateAsync()).User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId is null) return;
+
+            using var imageStream = _imageBytes is not null ? new MemoryStream(_imageBytes) : null;
+
+            await Broadcasts.CreateAsync(
+                _message.Trim(), imageStream, _imageFileName, _imageContentType,
+                userId, _targetType, _targetOrganizationId,
+                _targetType == BroadcastTargetType.Users ? _targetUsers.Select(u => u.Id).ToList() : null);
+
+            Toasts.Success("Broadcast sent.");
+            Reset();
+            await OnSent.InvokeAsync();
+            await OpenChanged.InvokeAsync(false);
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _sending = false; }
+    }
+
+    private Task OnOpenChangedAsync(bool open)
+    {
+        if (!open) Reset();
+        return OpenChanged.InvokeAsync(open);
+    }
+
+    private void Reset()
+    {
+        _message = "";
+        _imageBytes = null;
+        _imageContentType = null;
+        _imageFileName = null;
+        _imagePreviewUrl = null;
+        _targetType = BroadcastTargetType.All;
+        _targetOrganizationId = null;
+        _userQuery = "";
+        _userResults.Clear();
+        _targetUsers.Clear();
+    }
+}

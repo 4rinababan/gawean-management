@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaskManagement.Application.Abstractions;
 using TaskManagement.Domain.Automation;
+using TaskManagement.Domain.Broadcasts;
 using TaskManagement.Domain.Common;
 using TaskManagement.Domain.Diagnostics;
 using TaskManagement.Domain.Issues;
@@ -43,6 +44,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
 
     /// <summary>Global, not tenant-scoped — deliberately outside the per-tenant query filters below.</summary>
     public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
+
+    /// <summary>Global, not tenant-scoped — a broadcast can target every organization at once.</summary>
+    public DbSet<Broadcast> Broadcasts => Set<Broadcast>();
+    public DbSet<BroadcastTargetUser> BroadcastTargetUsers => Set<BroadcastTargetUser>();
+    public DbSet<BroadcastDismissal> BroadcastDismissals => Set<BroadcastDismissal>();
 
     public IQueryable<TEntity> IgnoringTenantFilter<TEntity>() where TEntity : class
         => Set<TEntity>().IgnoreQueryFilters();

@@ -41,6 +41,12 @@
 <Toaster />
 <ProductTour />
 
+<AuthorizeView>
+    <Authorized>
+        <BroadcastPopup />
+    </Authorized>
+</AuthorizeView>
+
 @* Deliberately plain script + DOM, not a Blazor component: this banner has to work identically on the
    static (non-interactive) auth pages and the interactive app pages this layout wraps, without relying
    on a live circuit to read localStorage back. *@

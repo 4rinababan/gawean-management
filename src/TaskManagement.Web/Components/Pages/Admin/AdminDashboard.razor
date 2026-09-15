@@ -3,6 +3,7 @@
 @attribute [Authorize]
 @using System.Security.Claims
 @inject AdminService Admin
+@inject BroadcastService Broadcasts
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
 
@@ -99,6 +100,47 @@ else if (_isAdmin)
                 </div>
             </Card>
         }
+        else if (_active == "broadcast" && _broadcasts is { } broadcasts)
+        {
+            <div class="mb-4 flex justify-end">
+                <Button Icon="plus" OnClick="() => _showComposer = true">New broadcast</Button>
+            </div>
+            @if (broadcasts.Count == 0)
+            {
+                <EmptyState Icon="bell" Title="No broadcasts yet"
+                            Description="Announce a new feature or a workspace-specific update — it shows once as a popup to whoever it's sent to." />
+            }
+            else
+            {
+                <div class="space-y-2">
+                    @foreach (var b in broadcasts)
+                    {
+                        <Card Class="!p-0" Padded="false">
+                            <div class="flex items-start gap-3 p-3">
+                                @if (b.ImageUrl is not null)
+                                {
+                                    <img src="@b.ImageUrl" class="h-14 w-14 shrink-0 rounded-lg border border-slate-200 object-cover dark:border-slate-700" />
+                                }
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-wrap items-center gap-2 text-xs">
+                                        <Badge Color="@(b.IsActive ? Badge.BadgeColor.Green : Badge.BadgeColor.Slate)">@(b.IsActive ? "Active" : "Retracted")</Badge>
+                                        <span class="text-slate-400">@b.TargetDescription</span>
+                                        <span class="text-slate-400">@b.CreatedAt.LocalDateTime.ToString("d MMM yyyy HH:mm")</span>
+                                    </div>
+                                    <p class="mt-1 text-sm text-slate-700 dark:text-slate-200">@b.Message</p>
+                                </div>
+                                @if (b.IsActive)
+                                {
+                                    <Button Variant="Button.ButtonVariant.Secondary" OnClick="() => DeactivateAsync(b.Id)">Retract</Button>
+                                }
+                            </div>
+                        </Card>
+                    }
+                </div>
+            }
+
+            <BroadcastComposer Open="_showComposer" OpenChanged="v => _showComposer = v" Workspaces="_workspaces ?? []" OnSent="LoadBroadcastsAsync" />
+        }
         else if (_active == "logs")
         {
             @if (_logs is { Count: 0 })
@@ -144,12 +186,15 @@ else if (_isAdmin)
     private IReadOnlyList<AdminUserDto>? _users;
     private IReadOnlyList<AdminWorkspaceDto>? _workspaces;
     private IReadOnlyList<AdminErrorLogDto>? _logs;
+    private IReadOnlyList<BroadcastDto>? _broadcasts;
+    private bool _showComposer;
 
     private static readonly IReadOnlyList<Tabs.TabItem> _tabs =
     [
         new("overview", "Overview"),
         new("users", "Users"),
         new("workspaces", "Workspaces"),
+        new("broadcast", "Broadcast"),
         new("logs", "Error logs"),
     ];
 
@@ -170,5 +215,14 @@ else if (_isAdmin)
         _users = await Admin.GetUsersAsync();
         _workspaces = await Admin.GetWorkspacesAsync();
         _logs = await Admin.GetErrorLogsAsync();
+        await LoadBroadcastsAsync();
+    }
+
+    private async Task LoadBroadcastsAsync() => _broadcasts = await Broadcasts.GetAllAsync();
+
+    private async Task DeactivateAsync(Guid id)
+    {
+        await Broadcasts.DeactivateAsync(id);
+        await LoadBroadcastsAsync();
     }
 }

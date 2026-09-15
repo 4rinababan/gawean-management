@@ -398,6 +398,23 @@ main > h1:first-child {
   @apply rounded-sm bg-white shadow-md dark:bg-slate-900;
 }
 
+/* Announcement popup (BroadcastPopup) — a soft fade for the backdrop and a gentle scale/rise for the
+   card itself, so it reads as a deliberate, polished reveal rather than a jarring modal snap-in. */
+@keyframes tm-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes tm-pop-in {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.tm-broadcast-backdrop {
+  animation: tm-fade-in 0.2s ease-out;
+}
+.tm-broadcast-card {
+  animation: tm-pop-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* Page navigation bar above PaginatedDocumentView / the paginated editor. */
 .tm-page-nav {
   @apply inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-2 py-1
