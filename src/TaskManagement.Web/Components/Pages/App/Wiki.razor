@@ -74,7 +74,7 @@
                     }
                     else
                     {
-                        <RichTextEditor Value="@_editContent" ValueChanged="v => _editContent = v" />
+                        <RichTextEditor Value="@_editContent" ValueChanged="v => _editContent = v" ShowPageCount="true" />
                     }
                 </div>
                 <div class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -125,7 +125,7 @@
                 }
                 else
                 {
-                    <RichTextView Html="@_page.Content" />
+                    <PaginatedDocumentView Html="@_page.Content" />
                 }
             </Card>
         }
