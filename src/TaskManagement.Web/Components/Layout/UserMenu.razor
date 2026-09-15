@@ -8,7 +8,7 @@
 <DropdownMenu>
     <Trigger>
         <button type="button" class="flex items-center gap-2 rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
-            <Avatar Name="@_name" Color="@_color" Size="sm" />
+            <Avatar Name="@_name" Color="@_color" UserId="@_userId" Size="sm" />
         </button>
     </Trigger>
     <ChildContent>
@@ -34,6 +34,7 @@
     private string _name = "Account";
     private string _email = "";
     private string _color = "#64748b";
+    private string? _userId;
     private bool _isSiteAdmin;
 
     protected override async Task OnInitializedAsync()
@@ -44,6 +45,7 @@
 
         // Prefer the profile display name over the login (which is the email address).
         var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        _userId = userId;
         _isSiteAdmin = await Admin.IsSiteAdminAsync(userId);
         if (userId is not null && await Users.GetAsync(userId) is { } profile)
         {

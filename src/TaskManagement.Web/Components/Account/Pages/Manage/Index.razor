@@ -1,4 +1,5 @@
-﻿@page "/Account/Manage"
+@page "/Account/Manage"
+@rendermode InteractiveServer
 
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Identity
@@ -7,35 +8,66 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
+@inject ProfileService Profile
+@inject ToastService Toasts
 
 <PageTitle>Profile</PageTitle>
 
-<h3>Profile</h3>
+<h1 class="mb-1 text-xl font-semibold text-slate-900 dark:text-slate-100">Profile</h1>
+<p class="mb-6 text-sm text-slate-500 dark:text-slate-400">Your photo and contact details.</p>
 <StatusMessage />
 
-<div class="row">
-    <div class="col-xl-6">
-        <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <input type="text" value="@username" id="username" class="form-control" placeholder="Choose your username." disabled />
-                <label for="username" class="form-label">Username</label>
+<Card>
+    <div class="flex items-center gap-4">
+        <Avatar Name="@(user?.DisplayName ?? username)" Color="@user?.AvatarColor" UserId="@user?.Id" Size="lg" Class="!h-16 !w-16 !text-xl" />
+        <div>
+            <div class="flex items-center gap-2">
+                <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                    @if (_uploading)
+                    {
+                        <Spinner Class="h-4 w-4" />
+                    }
+                    else
+                    {
+                        <Icon Name="photo" Class="h-4 w-4" />
+                    }
+                    @(_uploading ? "Uploading…" : "Change photo")
+                    <InputFile OnChange="OnAvatarSelectedAsync" class="sr-only" accept="image/png,image/jpeg,image/webp,image/gif" disabled="@_uploading" />
+                </label>
+                @if (user?.AvatarStorageKey is not null)
+                {
+                    <button type="button" class="text-xs text-rose-500 hover:underline" @onclick="RemoveAvatarAsync" disabled="@_uploading">Remove</button>
+                }
             </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="form-control" placeholder="Enter your phone number" />
-                <label for="Input.PhoneNumber" class="form-label">Phone number</label>
-                <ValidationMessage For="() => Input.PhoneNumber" class="text-danger" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Save</button>
-        </EditForm>
+            <p class="mt-1.5 text-xs text-slate-400">JPEG, PNG, WEBP or GIF. Max 5 MB.</p>
+        </div>
     </div>
-</div>
+</Card>
+
+<Card Class="mt-4">
+    <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="mb-3 text-xs text-rose-500" />
+        <div class="space-y-4">
+            <Field Label="Username">
+                <input type="text" value="@username" class="tm-input" disabled />
+            </Field>
+            <Field Label="Phone number">
+                <InputText @bind-Value="Input.PhoneNumber" class="tm-input" placeholder="Enter your phone number" />
+                <ValidationMessage For="() => Input.PhoneNumber" class="mt-1 block text-xs text-rose-500" />
+            </Field>
+        </div>
+        <div class="mt-6">
+            <Button Type="submit">Save</Button>
+        </div>
+    </EditForm>
+</Card>
 
 @code {
     private ApplicationUser? user;
     private string? username;
     private string? phoneNumber;
+    private bool _uploading;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
@@ -58,6 +90,39 @@
         phoneNumber = await UserManager.GetPhoneNumberAsync(user);
 
         Input.PhoneNumber ??= phoneNumber;
+    }
+
+    private async Task OnAvatarSelectedAsync(InputFileChangeEventArgs e)
+    {
+        if (user is null) return;
+
+        var file = e.File;
+        _uploading = true;
+        try
+        {
+            await using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            ms.Position = 0;
+            await Profile.UpdateAvatarAsync(user.Id, ms, file.Name, file.ContentType);
+            user = await UserManager.FindByIdAsync(user.Id);
+            Toasts.Success("Profile photo updated.");
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { _uploading = false; }
+    }
+
+    private async Task RemoveAvatarAsync()
+    {
+        if (user is null) return;
+
+        try
+        {
+            await Profile.RemoveAvatarAsync(user.Id);
+            user = await UserManager.FindByIdAsync(user.Id);
+            Toasts.Success("Profile photo removed.");
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
     }
 
     private async Task OnValidSubmitAsync()

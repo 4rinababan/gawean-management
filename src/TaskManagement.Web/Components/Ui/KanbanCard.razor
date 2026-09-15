@@ -29,7 +29,7 @@
             </div>
             @if (Issue.AssigneeUserId is not null)
             {
-                <Avatar Name="@Issue.AssigneeDisplayName" Color="@Issue.AssigneeAvatarColor" Size="xs" />
+                <Avatar Name="@Issue.AssigneeDisplayName" Color="@Issue.AssigneeAvatarColor" UserId="@Issue.AssigneeUserId" Size="xs" />
             }
         </div>
     </div>
