@@ -45,7 +45,7 @@ else
                     <div data-kanban-column data-status="@col.Status" class="flex min-h-[7rem] flex-col gap-2">
                         @foreach (var issue in col.Issues)
                         {
-                            <KanbanCard Issue="issue" OnOpenIssue="OpenIssue" @key="issue.Id" />
+                            <KanbanCard Issue="issue" OnOpenIssue="OpenIssue" Slug="@Slug" @key="issue.Id" />
                         }
                         @if (col.Issues.Count == 0)
                         {
@@ -62,15 +62,6 @@ else
     <CreateIssueModal Open="_showCreate" OpenChanged="v => _showCreate = v"
                       ProjectId="_project.Id" SprintId="_board?.ActiveSprintId"
                       OnCreated="_ => ReloadBoardAsync()" />
-
-    @* Opening an issue is a modal, not a navigation: closing it (✕, Escape, or backdrop click) just
-       returns to the board exactly as it was — no browser back button needed. *@
-    <Modal Open="_openIssueId is not null" OpenChanged="async v => { if (!v) await CloseIssue(); }" Width="xl">
-        @if (_openIssueId is { } id)
-        {
-            <IssueDetailPanel IssueId="id" Slug="@Slug" ShowBreadcrumb="false" OnDeleted="OnIssueDeleted" @key="id" />
-        }
-    </Modal>
 }
 
 @code {
@@ -79,7 +70,6 @@ else
     private ProjectDto? _project;
     private BoardDto? _board;
     private bool _showCreate;
-    private Guid? _openIssueId;
     private ElementReference _boardEl;
     private IJSObjectReference? _module;
     private DotNetObjectReference<Board>? _ref;
@@ -131,17 +121,7 @@ else
         }
     }
 
-    private void OpenIssue(Guid id) => _openIssueId = id;
-
-    /// <summary>Reload on close (not just on change) — simpler than tracking exactly what the panel
-    /// touched, and cheap enough for a board-sized issue list.</summary>
-    private async Task CloseIssue()
-    {
-        _openIssueId = null;
-        await ReloadBoardAsync();
-    }
-
-    private async Task OnIssueDeleted() => await CloseIssue();
+    private void OpenIssue(Guid id) => Nav.NavigateTo($"/{Slug}/issues/{id}");
 
     public async ValueTask DisposeAsync()
     {

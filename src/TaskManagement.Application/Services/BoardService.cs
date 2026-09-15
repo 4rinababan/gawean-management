@@ -39,13 +39,13 @@ public sealed class BoardService(
             .Where(s => s.ProjectId == projectId && s.State == SprintState.Active)
             .FirstOrDefaultAsync(ct);
 
-        var query = db.Issues.Include(i => i.Attachments).Where(i => i.ProjectId == projectId);
+        var query = db.Issues.Include(i => i.Attachments).Include(i => i.Viewers).Where(i => i.ProjectId == projectId);
         query = activeSprint is not null
             ? query.Where(i => i.SprintId == activeSprint.Id)
             : query.Where(i => i.Status != IssueStatus.Backlog);
 
         var boardIssues = await query.OrderBy(i => i.BoardRank).ToListAsync(ct);
-        var items = await IssueMapper.ToListItemsAsync(boardIssues, project.Key, users, ct);
+        var items = await IssueMapper.ToListItemsAsync(db, boardIssues, project.Key, users, ct);
 
         var columns = ColumnOrder
             .Select(status => new BoardColumnDto(

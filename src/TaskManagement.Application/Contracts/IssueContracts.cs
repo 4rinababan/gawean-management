@@ -55,7 +55,13 @@ public sealed record IssueListItemDto(
     string BoardRank,
     DateOnly? DueDate,
     bool IsOverdue,
-    int AttachmentCount);
+    int AttachmentCount,
+    string ReporterUserId,
+    string ReporterDisplayName,
+    string ReporterAvatarColor,
+    IReadOnlyList<IssueMemberDto> Viewers,
+    Guid? WikiPageId,
+    string? WikiPageTitle);
 
 public sealed record IssueDetailDto(
     Guid Id,

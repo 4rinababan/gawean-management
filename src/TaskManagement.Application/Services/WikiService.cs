@@ -98,4 +98,41 @@ public sealed class WikiService(IAppDbContextFactory dbf, IUserDirectory users, 
         await using var db = dbf.CreateDbContext();
         return await db.WikiPages.CountAsync(w => w.ParentPageId == pageId && w.OrganizationId == guard.OrganizationId, ct);
     }
+
+    /// <summary>The one wiki page (if any) documenting a given issue.</summary>
+    public async Task<WikiPageSummaryDto?> GetLinkedPageAsync(Guid issueId, CancellationToken ct = default)
+    {
+        guard.Require(OrgPermission.ViewContent);
+        await using var db = dbf.CreateDbContext();
+
+        return await db.WikiPages
+            .Where(w => w.IssueId == issueId && w.OrganizationId == guard.OrganizationId)
+            .Select(w => new WikiPageSummaryDto(w.Id, w.Title, w.ParentPageId, w.UpdatedAt))
+            .FirstOrDefaultAsync(ct);
+    }
+
+    /// <summary>
+    /// Links a page to an issue, clearing any other page's link to that same issue first — at most one
+    /// page documents a given issue at a time. Pass <c>issueId: null</c> to just unlink <paramref name="pageId"/>.
+    /// </summary>
+    public async Task LinkToIssueAsync(Guid pageId, Guid? issueId, CancellationToken ct = default)
+    {
+        guard.Require(OrgPermission.ManageWiki);
+        await using var db = dbf.CreateDbContext();
+
+        if (issueId is { } id)
+        {
+            var previouslyLinked = await db.WikiPages
+                .Where(w => w.OrganizationId == guard.OrganizationId && w.IssueId == id && w.Id != pageId)
+                .ToListAsync(ct);
+            foreach (var previous in previouslyLinked)
+                previous.LinkToIssue(null);
+        }
+
+        var page = await db.WikiPages.FirstOrDefaultAsync(w => w.Id == pageId && w.OrganizationId == guard.OrganizationId, ct)
+            ?? throw NotFoundException.For<WikiPage>(pageId);
+
+        page.LinkToIssue(issueId);
+        await db.SaveChangesAsync(ct);
+    }
 }

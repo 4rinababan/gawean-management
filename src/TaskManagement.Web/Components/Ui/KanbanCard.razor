@@ -6,24 +6,49 @@
     <div class="@($"w-1 shrink-0 {IssueVisuals.TypeAccentColor(Issue.Type)}")" title="@Issue.Type"></div>
     <div class="min-w-0 flex-1 p-3">
         <p class="text-sm font-medium text-slate-800 dark:text-slate-100">@Issue.Title</p>
+        <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+            <span class="@IssueVisuals.TypeIcon(Issue.Type)" title="@Issue.Type">@IssueVisuals.TypeSymbol(Issue.Type)</span>
+            <span class="font-mono">@Issue.Reference</span>
+            @if (Issue.StoryPoints is int sp)
+            {
+                <span class="rounded bg-slate-100 px-1.5 font-semibold text-slate-500 dark:bg-slate-700">@sp</span>
+            }
+            @if (Issue.AttachmentCount > 0)
+            {
+                <span class="flex items-center gap-0.5" title="@($"{Issue.AttachmentCount} attachment{(Issue.AttachmentCount == 1 ? "" : "s")}")">
+                    <Icon Name="paper-clip" Class="h-3.5 w-3.5" />@Issue.AttachmentCount
+                </span>
+            }
+            @if (Issue.DueDate is { } due)
+            {
+                <span class="@(Issue.IsOverdue ? "font-semibold text-rose-600 dark:text-rose-400" : "text-slate-400")">
+                    @(Issue.IsOverdue ? "⚠ " : "")@due.ToString("MMM d")
+                </span>
+            }
+            @if (Issue.WikiPageId is { } wikiPageId && !string.IsNullOrEmpty(Slug))
+            {
+                <a href="@($"/{Slug}/wiki/{wikiPageId}")" class="flex items-center gap-0.5 text-brand-600 hover:underline dark:text-brand-400"
+                   title="@($"Linked wiki page: {Issue.WikiPageTitle}")" @onclick:stopPropagation="true">
+                    <Icon Name="document-text" Class="h-3.5 w-3.5" />
+                    <span class="max-w-[6rem] truncate">@Issue.WikiPageTitle</span>
+                </a>
+            }
+        </div>
+
         <div class="mt-2 flex items-center justify-between">
-            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
-                <span class="@IssueVisuals.TypeIcon(Issue.Type)" title="@Issue.Type">@IssueVisuals.TypeSymbol(Issue.Type)</span>
-                <span class="font-mono">@Issue.Reference</span>
-                @if (Issue.StoryPoints is int sp)
+            <div class="flex items-center">
+                <Avatar Name="@Issue.ReporterDisplayName" Color="@Issue.ReporterAvatarColor" UserId="@Issue.ReporterUserId" Size="xs"
+                        Class="ring-2 ring-white dark:ring-slate-800" />
+                @foreach (var viewer in Issue.Viewers.Take(3))
                 {
-                    <span class="rounded bg-slate-100 px-1.5 font-semibold text-slate-500 dark:bg-slate-700">@sp</span>
+                    <Avatar Name="@viewer.DisplayName" Color="@viewer.AvatarColor" UserId="@viewer.UserId" Size="xs"
+                            Class="-ml-1.5 ring-2 ring-white dark:ring-slate-800" @key="viewer.UserId" />
                 }
-                @if (Issue.AttachmentCount > 0)
+                @if (Issue.Viewers.Count > 3)
                 {
-                    <span class="flex items-center gap-0.5" title="@($"{Issue.AttachmentCount} attachment{(Issue.AttachmentCount == 1 ? "" : "s")}")">
-                        <Icon Name="paper-clip" Class="h-3.5 w-3.5" />@Issue.AttachmentCount
-                    </span>
-                }
-                @if (Issue.DueDate is { } due)
-                {
-                    <span class="@(Issue.IsOverdue ? "font-semibold text-rose-600 dark:text-rose-400" : "text-slate-400")">
-                        @(Issue.IsOverdue ? "⚠ " : "")@due.ToString("MMM d")
+                    <span class="-ml-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-semibold text-slate-500 ring-2 ring-white dark:bg-slate-700 dark:text-slate-300 dark:ring-slate-800"
+                          title="@string.Join(", ", Issue.Viewers.Skip(3).Select(v => v.DisplayName))">
+                        +@(Issue.Viewers.Count - 3)
                     </span>
                 }
             </div>
@@ -38,6 +63,9 @@
 @code {
     [Parameter, EditorRequired] public IssueListItemDto Issue { get; set; } = default!;
     [Parameter] public EventCallback<Guid> OnOpenIssue { get; set; }
+
+    /// <summary>Needed only to build the linked wiki page's URL; the wiki link is skipped without it.</summary>
+    [Parameter] public string? Slug { get; set; }
 
     private Task OnOpen() => OnOpenIssue.InvokeAsync(Issue.Id);
 }
