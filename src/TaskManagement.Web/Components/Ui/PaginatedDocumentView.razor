@@ -3,17 +3,39 @@
 @inject IJSRuntime JS
 
 @* Read-only render of a wiki Document as real, paper-accurate pages (A4, page numbers, mid-paragraph
-   reflow) via Paged.js — see wwwroot/js/pagination.js. Deliberately separate from RichTextView, which
-   stays a plain flowing view for short content like issue descriptions where "N pages" is just noise. *@
+   reflow) via Paged.js — see wwwroot/js/pagination.js. Every page is laid out up front, then all but
+   the current one are hidden, so reading a long Document is Prev/Next through sheets rather than one
+   long scroll past every page stacked vertically. Deliberately separate from RichTextView, which stays
+   a plain flowing view for short content like issue descriptions where "N pages" is just noise. *@
 @if (string.IsNullOrWhiteSpace(Html))
 {
     <p class="text-sm text-slate-400">This page is empty.</p>
 }
 else
 {
-    <div class="mb-3 flex items-center gap-1.5 text-xs text-slate-400">
-        <Icon Name="document-text" Class="h-3.5 w-3.5" />
-        <span>@(_pageCount is null ? "Paginating…" : _pageCount == 1 ? "1 page" : $"{_pageCount} pages")</span>
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5 text-xs text-slate-400">
+            <Icon Name="document-text" Class="h-3.5 w-3.5" />
+            <span>@(_pageCount is null ? "Paginating…" : _pageCount == 1 ? "1 page" : $"{_pageCount} pages")</span>
+        </div>
+        @if (_pageCount is > 1)
+        {
+            <div class="flex items-center gap-1">
+                <button type="button" class="tm-page-nav" disabled="@(_currentPage == 1)" @onclick="() => GoToAsync(1)" title="First page">First</button>
+                <button type="button" class="tm-page-nav" disabled="@(_currentPage == 1)" @onclick="() => GoToAsync(_currentPage - 1)" title="Previous page">
+                    <Icon Name="arrow-left" Class="h-3.5 w-3.5" />
+                </button>
+                <span class="flex items-center gap-1.5 px-1 text-xs text-slate-500 dark:text-slate-400">
+                    Page
+                    <input type="number" class="tm-page-input" min="1" max="@_pageCount" value="@_currentPage" @onchange="OnPageInputChangedAsync" />
+                    of @_pageCount
+                </span>
+                <button type="button" class="tm-page-nav" disabled="@(_currentPage == _pageCount)" @onclick="() => GoToAsync(_currentPage + 1)" title="Next page">
+                    <Icon Name="arrow-left" Class="h-3.5 w-3.5 rotate-180" />
+                </button>
+                <button type="button" class="tm-page-nav" disabled="@(_currentPage == _pageCount)" @onclick="() => GoToAsync(_pageCount!.Value)" title="Last page">Last</button>
+            </div>
+        }
     </div>
     <div @ref="_host" class="tm-paginated" @key="Html"></div>
 }
@@ -25,6 +47,7 @@ else
     private IJSObjectReference? _module;
     private string? _rendered;
     private int? _pageCount;
+    private int _currentPage = 1;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -33,10 +56,25 @@ else
 
         _rendered = Html;
         _pageCount = null;
+        _currentPage = 1;
         _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/pagination.js");
         _pageCount = await _module.InvokeAsync<int>("renderPaginated", Html, _host);
+        if (_pageCount > 0)
+            await _module.InvokeVoidAsync("showPage", _host, 0);
         StateHasChanged();
     }
+
+    private async Task GoToAsync(int page)
+    {
+        if (_module is null || _pageCount is not { } count) return;
+        page = Math.Clamp(page, 1, count);
+        if (page == _currentPage) return;
+        _currentPage = page;
+        await _module.InvokeVoidAsync("showPage", _host, page - 1);
+    }
+
+    private Task OnPageInputChangedAsync(ChangeEventArgs e) =>
+        int.TryParse(e.Value?.ToString(), out var page) ? GoToAsync(page) : Task.CompletedTask;
 
     public async ValueTask DisposeAsync()
     {
