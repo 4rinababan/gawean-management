@@ -43,19 +43,26 @@
         _name = user.Identity?.Name ?? "Account";
         _email = user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? _name;
 
-        // Prefer the profile display name over the login (which is the email address).
-        var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        _userId = userId;
-        _isSiteAdmin = await Admin.IsSiteAdminAsync(userId);
-        if (userId is not null && await Users.GetAsync(userId) is { } profile)
+        // A fast navigation away (or the circuit reconnecting) can dispose this component's DI scope
+        // while these two DB calls are still in flight; resuming after that throws ObjectDisposedException
+        // rather than something OnInitializedAsync can usefully react to — there's no UI left to update.
+        try
         {
-            _name = profile.DisplayName;
-            _email = profile.Email;
-            _color = profile.AvatarColor;
-            return;
-        }
+            // Prefer the profile display name over the login (which is the email address).
+            var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            _userId = userId;
+            _isSiteAdmin = await Admin.IsSiteAdminAsync(userId);
+            if (userId is not null && await Users.GetAsync(userId) is { } profile)
+            {
+                _name = profile.DisplayName;
+                _email = profile.Email;
+                _color = profile.AvatarColor;
+                return;
+            }
 
-        _color = TaskManagement.Infrastructure.Identity.ApplicationUser.PickAvatarColor(_name);
+            _color = TaskManagement.Infrastructure.Identity.ApplicationUser.PickAvatarColor(_name);
+        }
+        catch (ObjectDisposedException) { }
     }
 
     private void RestartTour() => Tour.Restart();

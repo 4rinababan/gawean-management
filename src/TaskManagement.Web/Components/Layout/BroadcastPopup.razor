@@ -1,0 +1,66 @@
+@namespace TaskManagement.Web.Components.Layout
+@rendermode InteractiveServer
+@inject BroadcastService Broadcasts
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+@* One-time announcement popup for site-admin broadcasts. Evaluated once per full page load (not
+   re-checked on every in-app navigation) — matches how a "what's new" popup works in most products:
+   shown once when you land, not continuously re-triggered as you move around. *@
+@if (_current is not null)
+{
+    @* z-[80]: above ProductTour's highlight overlay (z-[70]), which otherwise sits on top and — despite
+       rendering only a small visible ring — spans the full viewport and swallows clicks meant for this
+       popup's buttons. An announcement should always win over the onboarding tour, not compete with it. *@
+    <div class="tm-broadcast-backdrop fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" @onclick="DismissAsync">
+        <div class="tm-broadcast-card w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900" @onclick:stopPropagation="true">
+            @if (_current.ImageUrl is not null)
+            {
+                <img src="@_current.ImageUrl" class="h-48 w-full object-cover" alt="" />
+            }
+            <div class="p-6">
+                <div class="mb-3 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-500 to-indigo-500 px-3 py-1 text-xs font-semibold text-white">
+                    <Icon Name="sparkles" Class="h-3.5 w-3.5" />
+                    Announcement
+                </div>
+                <p class="whitespace-pre-line text-[15px] leading-relaxed text-slate-700 dark:text-slate-200">@_current.Message</p>
+                <button type="button" class="mt-5 w-full rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700" @onclick="DismissAsync">
+                    Got it
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private Queue<BroadcastPopupDto> _queue = new();
+    private BroadcastPopupDto? _current;
+    private string? _userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = (await AuthState.GetAuthenticationStateAsync()).User;
+        _userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (_userId is null) return;
+
+        var items = await Broadcasts.GetUndismissedForUserAsync(_userId, CurrentSlug());
+        _queue = new Queue<BroadcastPopupDto>(items);
+        _current = _queue.Count > 0 ? _queue.Dequeue() : null;
+    }
+
+    /// <summary>Best-effort: the first URL path segment when this app's org routes are shaped
+    /// "/{slug}/...". Non-org pages (e.g. /admin) just won't match a real organization, which
+    /// correctly means no Organization-targeted broadcast shows there — a harmless miss, not a bug.</summary>
+    private string? CurrentSlug()
+    {
+        var segment = new Uri(Nav.Uri).AbsolutePath.Trim('/').Split('/').FirstOrDefault();
+        return string.IsNullOrEmpty(segment) ? null : segment;
+    }
+
+    private async Task DismissAsync()
+    {
+        if (_current is null || _userId is null) return;
+        await Broadcasts.DismissAsync(_current.Id, _userId);
+        _current = _queue.Count > 0 ? _queue.Dequeue() : null;
+    }
+}

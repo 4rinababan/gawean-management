@@ -1,16 +1,29 @@
 @namespace TaskManagement.Web.Components.Pages.App
 
 <div>
-    <a href="@($"/{Slug}/wiki/{Node.Id}")" class="@NavClass" @key="Node.Id">
-        <Icon Name="document-text" Class="h-3.5 w-3.5 shrink-0" />
-        <span class="truncate">@Node.Title</span>
-    </a>
-    @if (Children.Count > 0)
+    <div class="flex items-center gap-0.5">
+        @if (Children.Count > 0)
+        {
+            <button type="button" class="shrink-0 rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                    @onclick="() => _expanded = !_expanded" title="@(_expanded ? "Collapse" : "Expand")">
+                <Icon Name="arrow-left" Class="@($"h-3 w-3 transition-transform {(_expanded ? "rotate-90" : "rotate-180")}")" />
+            </button>
+        }
+        else
+        {
+            <span class="w-4 shrink-0"></span>
+        }
+        <a href="@($"/{Slug}/wiki/{Node.Id}")" class="@NavClass" @key="Node.Id">
+            <Icon Name="document-text" Class="h-3.5 w-3.5 shrink-0" />
+            <span class="truncate">@Node.Title</span>
+        </a>
+    </div>
+    @if (Children.Count > 0 && _expanded)
     {
         <div class="ml-3 space-y-0.5 border-l border-slate-200 pl-2 dark:border-slate-700">
             @foreach (var child in Children)
             {
-                <WikiTreeNode Slug="@Slug" Node="child" AllNodes="AllNodes" ActivePageId="ActivePageId" />
+                <WikiTreeNode Slug="@Slug" Node="child" AllNodes="AllNodes" ActivePageId="ActivePageId" @key="child.Id" />
             }
         </div>
     }
@@ -24,7 +37,27 @@
 
     private List<WikiPageSummaryDto> Children => AllNodes.Where(n => n.ParentPageId == Node.Id).ToList();
 
-    private string NavClass => "flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition " +
+    // Expanded by default whenever the active page is this node or lives somewhere underneath it, so
+    // navigating to a deeply-nested page never hides it; otherwise collapsed, so a large tree doesn't
+    // dump every page into the sidebar at once. Only computed once per mount — after that, the user's
+    // own expand/collapse choices are left alone rather than being reset on every navigation.
+    private bool _expanded;
+
+    protected override void OnInitialized()
+    {
+        _expanded = HasActiveDescendant(Node);
+    }
+
+    private bool HasActiveDescendant(WikiPageSummaryDto node)
+    {
+        foreach (var child in AllNodes.Where(n => n.ParentPageId == node.Id))
+        {
+            if (child.Id == ActivePageId || HasActiveDescendant(child)) return true;
+        }
+        return false;
+    }
+
+    private string NavClass => "flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition " +
         (Node.Id == ActivePageId
             ? "bg-brand-50 font-medium text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
             : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800");

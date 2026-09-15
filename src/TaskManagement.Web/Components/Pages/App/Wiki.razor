@@ -37,7 +37,7 @@
             <nav class="space-y-0.5">
                 @foreach (var root in _tree.Where(n => n.ParentPageId is null))
                 {
-                    <WikiTreeNode Slug="@Slug" Node="root" AllNodes="_tree" ActivePageId="PageId" />
+                    <WikiTreeNode Slug="@Slug" Node="root" AllNodes="_tree" ActivePageId="PageId" @key="root.Id" />
                 }
             </nav>
         }
