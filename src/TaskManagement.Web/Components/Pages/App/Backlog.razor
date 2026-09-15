@@ -51,7 +51,7 @@ else
                         }
                         @if (issue.AssigneeUserId is not null)
                         {
-                            <Avatar Name="@issue.AssigneeDisplayName" Color="@issue.AssigneeAvatarColor" Size="xs" />
+                            <Avatar Name="@issue.AssigneeDisplayName" Color="@issue.AssigneeAvatarColor" UserId="@issue.AssigneeUserId" Size="xs" />
                         }
                     </li>
                 }

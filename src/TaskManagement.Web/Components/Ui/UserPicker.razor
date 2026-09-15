@@ -7,7 +7,7 @@
         {
             @* Selection reads as a removable chip rather than plain text. *@
             <span class="inline-flex max-w-full items-center gap-1.5 rounded-full bg-brand-50 py-0.5 pl-0.5 pr-1 text-xs font-medium text-brand-800 dark:bg-brand-900/50 dark:text-brand-100">
-                <Avatar Name="@Selected.DisplayName" Color="@Selected.AvatarColor" Size="xs" />
+                <Avatar Name="@Selected.DisplayName" Color="@Selected.AvatarColor" UserId="@Selected.UserId" Size="xs" />
                 <span class="truncate">@Selected.DisplayName</span>
                 @if (AllowUnassigned)
                 {
@@ -43,7 +43,7 @@
             {
                 <button type="button" class="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
                         @onclick="() => Pick(m.UserId)" @key="m.UserId">
-                    <Avatar Name="@m.DisplayName" Color="@m.AvatarColor" Size="xs" />
+                    <Avatar Name="@m.DisplayName" Color="@m.AvatarColor" UserId="@m.UserId" Size="xs" />
                     <span class="truncate">@m.DisplayName</span>
                 </button>
             }

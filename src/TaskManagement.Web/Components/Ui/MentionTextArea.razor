@@ -15,7 +15,7 @@
                 <button type="button" @key="member.UserId"
                         class="@($"flex w-full items-center gap-2 px-3 py-2 text-left text-sm {(index == _highlighted ? "bg-slate-100 dark:bg-slate-700" : "hover:bg-slate-100 dark:hover:bg-slate-700")}")"
                         @onclick="() => Insert(member)">
-                    <Avatar Name="@member.DisplayName" Color="@member.AvatarColor" Size="xs" />
+                    <Avatar Name="@member.DisplayName" Color="@member.AvatarColor" UserId="@member.UserId" Size="xs" />
                     <span class="min-w-0 flex-1 truncate">@member.DisplayName</span>
                     <span class="shrink-0 font-mono text-xs text-slate-400">@@@member.MentionHandle</span>
                 </button>

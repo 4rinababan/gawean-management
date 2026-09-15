@@ -1,14 +1,24 @@
 @namespace TaskManagement.Web.Components.Ui
 
-<span class="@($"inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white {SizeClass} {Class}")"
+<span class="@($"relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold text-white {SizeClass} {Class}")"
       style="background-color: @(Color ?? "#64748b")"
       title="@Name">
     @Initials
+    @if (!string.IsNullOrEmpty(UserId))
+    {
+        @* Stacked on top of the initials via the parent's overflow-hidden + this being absolutely
+           positioned: a loaded photo fully covers them, and onerror just removes itself so a user
+           with no uploaded photo (a 404 from /avatars/{id}) silently falls back to the initials. *@
+        <img src="@($"/avatars/{UserId}")" alt=""
+             class="absolute inset-0 h-full w-full object-cover"
+             onerror="this.remove()" />
+    }
 </span>
 
 @code {
     [Parameter, EditorRequired] public string? Name { get; set; }
     [Parameter] public string? Color { get; set; }
+    [Parameter] public string? UserId { get; set; }
     [Parameter] public string Size { get; set; } = "md";
     [Parameter] public string? Class { get; set; }
 

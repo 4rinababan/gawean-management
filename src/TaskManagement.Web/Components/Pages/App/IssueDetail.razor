@@ -123,7 +123,7 @@ else
                 @foreach (var c in _issue.Comments)
                 {
                     <div class="flex gap-3 py-3" @key="c.Id">
-                        <Avatar Name="@c.AuthorDisplayName" Color="@c.AuthorAvatarColor" Size="sm" />
+                        <Avatar Name="@c.AuthorDisplayName" Color="@c.AuthorAvatarColor" UserId="@c.AuthorUserId" Size="sm" />
                         <div class="min-w-0 flex-1">
                             <p class="text-xs text-slate-400">@c.AuthorDisplayName · @c.CreatedAt.LocalDateTime.ToString("g")</p>
                             <p class="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">@RenderCommentBody(c.Body)</p>
@@ -258,7 +258,7 @@ else
                         </select>
                     </div>
                     <div class="flex items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-                        <Avatar Name="@_issue.ReporterDisplayName" Color="@_issue.ReporterAvatarColor" Size="xs" />
+                        <Avatar Name="@_issue.ReporterDisplayName" Color="@_issue.ReporterAvatarColor" UserId="@_issue.ReporterUserId" Size="xs" />
                         <div class="text-xs text-slate-400">
                             <p>Reported by <span class="font-medium text-slate-600 dark:text-slate-300">@_issue.ReporterDisplayName</span></p>
                             <p>Created @_issue.CreatedAt.LocalDateTime.ToString("d MMM yyyy, HH:mm")</p>

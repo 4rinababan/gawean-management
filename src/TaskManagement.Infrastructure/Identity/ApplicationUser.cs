@@ -8,8 +8,13 @@ public class ApplicationUser : IdentityUser
     [PersonalData]
     public string DisplayName { get; set; } = string.Empty;
 
-    /// <summary>Deterministic hex colour for the user's initials avatar, assigned at registration.</summary>
+    /// <summary>Deterministic hex colour for the user's initials avatar, assigned at registration. Still used as the fallback background behind an uploaded photo, and as the only avatar when there isn't one.</summary>
     public string AvatarColor { get; set; } = "#64748b";
+
+    /// <summary>IFileStorage key for an uploaded profile photo, or null to show the initials avatar.</summary>
+    public string? AvatarStorageKey { get; set; }
+
+    public string? AvatarContentType { get; set; }
 
     /// <summary>Grants access to the site-wide /admin dashboard (all users, all workspaces, error logs). Not tied to any organization role.</summary>
     public bool IsSiteAdmin { get; set; }
