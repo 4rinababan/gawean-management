@@ -1,9 +1,12 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TaskManagement.Application.Abstractions;
 using TaskManagement.Application.Common;
 using TaskManagement.Application.Contracts;
+using TaskManagement.Domain;
 using TaskManagement.Domain.Authorization;
 using TaskManagement.Domain.Wiki;
+using TaskManagement.Domain.Wiki.Spreadsheet;
 
 namespace TaskManagement.Application.Services;
 
@@ -18,7 +21,7 @@ public sealed class WikiService(IAppDbContextFactory dbf, IUserDirectory users, 
         return await db.WikiPages
             .Where(w => w.OrganizationId == guard.OrganizationId)
             .OrderBy(w => w.Title)
-            .Select(w => new WikiPageSummaryDto(w.Id, w.Title, w.ParentPageId, w.UpdatedAt))
+            .Select(w => new WikiPageSummaryDto(w.Id, w.Title, w.ParentPageId, w.UpdatedAt, w.Type))
             .ToListAsync(ct);
     }
 
@@ -41,6 +44,7 @@ public sealed class WikiService(IAppDbContextFactory dbf, IUserDirectory users, 
             page.Id,
             page.Title,
             page.Content,
+            page.Type,
             page.ParentPageId,
             parentTitle,
             people.TryGetValue(page.CreatedByUserId, out var creator) ? creator.DisplayName : "Unknown",
@@ -60,11 +64,17 @@ public sealed class WikiService(IAppDbContextFactory dbf, IUserDirectory users, 
             throw NotFoundException.For<WikiPage>(parentId);
         }
 
-        var page = new WikiPage(guard.OrganizationId, request.Title, null, request.ParentPageId, guard.UserId);
+        // A spreadsheet starts with one usable sheet rather than null content, so the editor has
+        // something to render immediately instead of special-casing "brand new, no workbook yet".
+        var initialContent = request.Type == WikiPageType.Spreadsheet
+            ? JsonSerializer.Serialize(SpreadsheetWorkbook.NewDefault())
+            : null;
+
+        var page = new WikiPage(guard.OrganizationId, request.Title, initialContent, request.ParentPageId, guard.UserId, request.Type);
         db.WikiPages.Add(page);
         await db.SaveChangesAsync(ct);
 
-        return new WikiPageSummaryDto(page.Id, page.Title, page.ParentPageId, page.UpdatedAt);
+        return new WikiPageSummaryDto(page.Id, page.Title, page.ParentPageId, page.UpdatedAt, page.Type);
     }
 
     public async Task UpdateAsync(Guid pageId, UpdateWikiPageRequest request, CancellationToken ct = default)
@@ -75,7 +85,13 @@ public sealed class WikiService(IAppDbContextFactory dbf, IUserDirectory users, 
         var page = await db.WikiPages.FirstOrDefaultAsync(w => w.Id == pageId && w.OrganizationId == guard.OrganizationId, ct)
             ?? throw NotFoundException.For<WikiPage>(pageId);
 
-        page.Update(request.Title, request.Content is null ? null : sanitizer.Sanitize(request.Content), guard.UserId);
+        // Only a Document's content is HTML — a Spreadsheet's is already-serialized workbook JSON, and
+        // running it through the HTML sanitiser would mangle it.
+        var content = request.Content is null
+            ? null
+            : page.Type == WikiPageType.Document ? sanitizer.Sanitize(request.Content) : request.Content;
+
+        page.Update(request.Title, content, guard.UserId);
         await db.SaveChangesAsync(ct);
     }
 
@@ -107,7 +123,7 @@ public sealed class WikiService(IAppDbContextFactory dbf, IUserDirectory users, 
 
         return await db.WikiPages
             .Where(w => w.IssueId == issueId && w.OrganizationId == guard.OrganizationId)
-            .Select(w => new WikiPageSummaryDto(w.Id, w.Title, w.ParentPageId, w.UpdatedAt))
+            .Select(w => new WikiPageSummaryDto(w.Id, w.Title, w.ParentPageId, w.UpdatedAt, w.Type))
             .FirstOrDefaultAsync(ct);
     }
 

@@ -6,26 +6,33 @@ namespace TaskManagement.Domain.Wiki;
 /// One page in a workspace's wiki. Pages can nest under a parent to form a Confluence-style tree;
 /// nesting depth is unbounded but only set at creation time — there's no "move" operation yet, which
 /// sidesteps having to guard against a page becoming its own ancestor.
+///
+/// <see cref="Content"/> is shaped by <see cref="Type"/>: sanitised rich-text HTML for
+/// <see cref="WikiPageType.Document"/>, or serialized <see cref="Spreadsheet.SpreadsheetWorkbook"/> JSON
+/// for <see cref="WikiPageType.Spreadsheet"/> — the type never changes after creation, so nothing has to
+/// reinterpret one shape as the other.
 /// </summary>
 public class WikiPage : Entity, ITenantScoped
 {
     private WikiPage() { }
 
-    public WikiPage(Guid organizationId, string title, string? content, Guid? parentPageId, string createdByUserId)
+    public WikiPage(Guid organizationId, string title, string? content, Guid? parentPageId, string createdByUserId, WikiPageType type = WikiPageType.Document)
     {
         OrganizationId = organizationId;
         Title = Guard.NotBlank(title, nameof(title));
         Content = content;
         ParentPageId = parentPageId;
         CreatedByUserId = Guard.NotBlank(createdByUserId, nameof(createdByUserId));
+        Type = type;
     }
 
     public Guid OrganizationId { get; private set; }
 
     public string Title { get; private set; } = string.Empty;
 
-    /// <summary>Sanitised rich-text HTML, same shape as an issue description.</summary>
     public string? Content { get; private set; }
+
+    public WikiPageType Type { get; private set; } = WikiPageType.Document;
 
     public Guid? ParentPageId { get; private set; }
 

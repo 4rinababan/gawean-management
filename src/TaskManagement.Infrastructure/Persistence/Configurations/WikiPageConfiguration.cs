@@ -18,6 +18,7 @@ public sealed class WikiPageConfiguration : IEntityTypeConfiguration<WikiPage>
         // with several tables already blew past a 50,000-char cap and failed to save with an opaque
         // DbUpdateException, which is what prompted removing the limit.
         builder.Property(w => w.Content).HasColumnType("text");
+        builder.Property(w => w.Type).HasConversion<string>().HasMaxLength(20);
         builder.Property(w => w.CreatedByUserId).HasMaxLength(450).IsRequired();
         builder.Property(w => w.LastEditedByUserId).HasMaxLength(450);
         builder.HasIndex(w => new { w.OrganizationId, w.ParentPageId });
