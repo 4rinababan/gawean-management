@@ -5,6 +5,7 @@
 @attribute [Authorize]
 @inherits OrgPageBase
 @using System.Text.Json
+@using TaskManagement.Application.Common
 @using TaskManagement.Domain
 @using TaskManagement.Domain.Wiki.Spreadsheet
 @inject WikiService WikiSvc
@@ -53,6 +54,15 @@
                     {
                         <Button OnClick="() => BeginCreate(null)">New page</Button>
                     }
+                </Actions>
+            </EmptyState>
+        }
+        else if (_pageNotFound)
+        {
+            <EmptyState Icon="exclamation-triangle" Title="Page not found"
+                        Description="This page may have been deleted, or the link is no longer valid.">
+                <Actions>
+                    <Button Variant="Button.ButtonVariant.Secondary" OnClick="BackToWikiRoot">Back to Wiki</Button>
                 </Actions>
             </EmptyState>
         }
@@ -164,6 +174,7 @@
 
     private IReadOnlyList<WikiPageSummaryDto>? _tree;
     private WikiPageDto? _page;
+    private bool _pageNotFound;
     private bool _editing;
     private string _editTitle = "";
     private string? _editContent;
@@ -200,9 +211,22 @@
     private async Task LoadPageAsync()
     {
         _editing = false;
-        _page = PageId is { } id ? await WikiSvc.GetAsync(id) : null;
+        _pageNotFound = false;
+        _page = null;
+
+        if (PageId is { } id)
+        {
+            // A stale link (the page was since deleted, or the id was mistyped/bookmarked) must not
+            // crash the whole page — this is an expected, user-reachable outcome, not a bug to surface
+            // as an unhandled exception.
+            try { _page = await WikiSvc.GetAsync(id); }
+            catch (NotFoundException) { _pageNotFound = true; }
+        }
+
         _viewWorkbook = _page is { Type: WikiPageType.Spreadsheet } ? DeserializeWorkbook(_page.Content) : null;
     }
+
+    private void BackToWikiRoot() => NavManager.NavigateTo($"/{Slug}/wiki");
 
     private static SpreadsheetWorkbook DeserializeWorkbook(string? content) =>
         (string.IsNullOrWhiteSpace(content) ? null : JsonSerializer.Deserialize<SpreadsheetWorkbook>(content))
